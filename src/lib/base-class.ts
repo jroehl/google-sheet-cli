@@ -1,0 +1,81 @@
+// src/base.ts
+import Command, { flags } from '@oclif/command';
+import cli from 'cli-ux';
+import GoogleSheet from './google-sheet';
+
+export const spreadsheetId = flags.string({
+  char: 's',
+  description: 'ID of the spreadsheet to use',
+  required: true,
+});
+
+export const worksheetTitle = flags.string({
+  char: 't',
+  description: 'Title of the worksheet to use',
+  required: true,
+});
+
+export default abstract class extends Command {
+  private rawLogs: boolean = false;
+  public gsheet!: GoogleSheet;
+
+  static flags = {
+    help: flags.help({ char: 'h' }),
+    rawOutput: flags.boolean({
+      char: 'r',
+      description: 'Get the raw output as a JSON string',
+      default: false,
+      required: false,
+    }),
+  };
+
+  async start(message: string) {
+    if (!this.rawLogs) {
+      cli.action.start(message);
+    }
+  }
+
+  async stop(message?: string) {
+    if (!this.rawLogs) {
+      cli.action.stop(message);
+    }
+  }
+
+  async logRaw(message: string, raw?: any) {
+    if (this.rawLogs) {
+      this.log(JSON.stringify(raw, null, 2));
+    } else {
+      this.log(message);
+    }
+  }
+
+  async init() {
+    // do some initialization
+    const { flags } = this.parse(<any>this.constructor);
+    this.rawLogs = flags && flags.rawOutput;
+
+    const {
+      GSHEET_CLIENT_EMAIL = await cli.prompt('What is your client email?', { type: 'hide' }),
+      GSHEET_PRIVATE_KEY = await cli.prompt('What is your private key?', { type: 'hide' }),
+    } = process.env;
+
+    const gsheet = new GoogleSheet();
+    await gsheet.authorize({
+      client_email: GSHEET_CLIENT_EMAIL,
+      private_key: GSHEET_PRIVATE_KEY,
+    });
+
+    this.gsheet = gsheet;
+  }
+
+  async catch(err: Error) {
+    this.stop('errored');
+    this.error(err.message || err);
+    process.exit(1);
+    // handle any error from the command
+  }
+
+  async finally(err: Error) {
+    // called after run and catch regardless of whether or not the command errored
+  }
+}

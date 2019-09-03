@@ -1,0 +1,84 @@
+{
+  "name": "gsheet-cli",
+  "description": "A simple helper cli to interact with google sheets.",
+  "version": "0.0.0",
+  "bin": {
+    "gsheet": "./bin/run"
+  },
+  "bugs": "https://github.com/jroehl/gsheet-cli/issues",
+  "dependencies": {
+    "@oclif/command": "^1.5.18",
+    "@oclif/config": "^1.13.3",
+    "@oclif/plugin-help": "^2.2.1",
+    "@types/lodash.get": "^4.4.6",
+    "googleapis": "^42.0.0",
+    "lodash.get": "^4.4.2",
+    "semantic-release": "^15.13.24",
+    "tslib": "^1.10.0"
+  },
+  "devDependencies": {
+    "@oclif/dev-cli": "^1.22.2",
+    "@oclif/test": "^1.2.5",
+    "@types/chai": "^4.2.0",
+    "@types/jest": "^24.0.18",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^10.14.16",
+    "chai": "^4.2.0",
+    "globby": "^10.0.1",
+    "jest": "^24.9.0",
+    "jest-circus": "^24.9.0",
+    "mocha": "^5.2.0",
+    "nyc": "^13.3.0",
+    "ts-jest": "^24.0.2",
+    "ts-node": "^8.3.0",
+    "typescript": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "files": [
+    "/bin",
+    "/lib",
+    "/npm-shrinkwrap.json",
+    "/oclif.manifest.json"
+  ],
+  "homepage": "https://github.com/jroehl/gsheet-cli",
+  "keywords": [
+    "oclif",
+    "cli",
+    "google sheets"
+  ],
+  "author": "jroehl <mail@johannroehl.de>",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "oclif": {
+    "commands": "./lib/commands",
+    "bin": "gsheet",
+    "plugins": [
+      "@oclif/plugin-help"
+    ],
+    "topics": {
+      "data": {
+        "description": "Manage data in worksheet"
+      },
+      "worksheet": {
+        "description": "Manage worksheets"
+      },
+      "spreadsheet": {
+        "description": "Manage spreadsheets"
+      }
+    }
+  },
+  "repository": "jroehl/gsheet-cli",
+  "scripts": {
+    "postpack": "rm -f oclif.manifest.json",
+    "version": "oclif-dev readme && git add README.md",
+    "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
+    "test": "npm run test:jest && npm run test:nyc",
+    "test:nyc": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
+    "test:jest": "jest --coverage ./__tests__",
+    "test:jest-watch": "jest --watch --coverage",
+    "semantic-release": "semantic-release"
+  },
+  "types": "lib/index.d.ts"
+}
