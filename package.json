@@ -12,6 +12,7 @@
     "@oclif/plugin-help": "^2.2.1",
     "cli-ux": "^5.3.2",
     "googleapis": "^42.0.0",
+    "husky": "^3.0.5",
     "lodash.get": "^4.4.2",
     "semantic-release": "^15.13.24",
     "tslib": "^1.10.0"
@@ -67,10 +68,15 @@
     }
   },
   "repository": "jroehl/google-sheet-cli",
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run version"
+    }
+  },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
-    "version": "oclif-dev readme && git add README.md",
-    "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
+    "version": "oclif-dev readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
+    "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme --multi",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
     "semantic-release": "semantic-release"
   },
