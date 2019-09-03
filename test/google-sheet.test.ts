@@ -1,3 +1,4 @@
+import { expect } from '@oclif/test';
 import GoogleSheet from '../src/lib/google-sheet';
 import { sheets_v4 } from 'googleapis';
 
@@ -11,10 +12,10 @@ describe('google-sheet', () => {
   const worksheetTitle = `test-google-sheets-${Date.now()}`;
   const { TEST_SPREADSHEET_ID = '', GSHEET_CLIENT_EMAIL = '', GSHEET_PRIVATE_KEY = '' } = process.env;
 
-  beforeAll(async () => {
+  before(async () => {
     // Create a new GoogleSheet instance and authorize
     gsheet = new GoogleSheet(TEST_SPREADSHEET_ID);
-    expect(gsheet).toBeInstanceOf(GoogleSheet);
+    expect(gsheet).to.instanceOf(GoogleSheet);
     await gsheet.authorize({
       client_email: GSHEET_CLIENT_EMAIL,
       private_key: GSHEET_PRIVATE_KEY,
@@ -24,26 +25,28 @@ describe('google-sheet', () => {
   it('[1] creates a worksheet', async () => {
     const sheet: sheets_v4.Schema$Sheet = await gsheet.addWorksheet(worksheetTitle);
     if (!sheet.properties) throw sheet;
-    expect(sheet.properties).toHaveProperty('sheetId');
-    expect(sheet.properties).toHaveProperty('index');
-    expect(sheet.properties).toHaveProperty('gridProperties');
-    expect(sheet.properties.title).toBe(worksheetTitle);
-    expect(sheet.properties.sheetType).toBe('GRID');
+    expect(sheet.properties).to.haveOwnProperty('sheetId');
+    expect(sheet.properties).to.haveOwnProperty('index');
+    expect(sheet.properties).to.haveOwnProperty('gridProperties');
+    expect(sheet.properties.title).to.equal(worksheetTitle);
+    expect(sheet.properties.sheetType).to.equal('GRID');
   });
 
   it('[2] gets a worksheet', async () => {
     const sheet: sheets_v4.Schema$Sheet = await gsheet.getWorksheet(worksheetTitle);
     if (!sheet.properties) throw sheet;
-    expect(sheet.properties).toHaveProperty('sheetId');
-    expect(sheet.properties).toHaveProperty('index');
-    expect(sheet.properties).toHaveProperty('gridProperties');
-    expect(sheet.properties.title).toBe(worksheetTitle);
-    expect(sheet.properties.sheetType).toBe('GRID');
+    expect(sheet.properties).to.haveOwnProperty('sheetId');
+    expect(sheet.properties).to.haveOwnProperty('index');
+    expect(sheet.properties).to.haveOwnProperty('gridProperties');
+    expect(sheet.properties.title).to.equal(worksheetTitle);
+    expect(sheet.properties.sheetType).to.equal('GRID');
   });
 
   it('[3] updates data', async () => {
-    await expect(gsheet.updateData(data.new, { worksheetTitle, minCol: 1, minRow: 1 })).resolves.toBeUndefined();
-    await expect(gsheet.getData({ minCol: 1, minRow: 1 })).resolves.toEqual({
+    const update = await gsheet.updateData(data.new, { worksheetTitle, minCol: 1, minRow: 1 });
+    await expect(update).to.equal(undefined);
+    const get = await gsheet.getData({ minCol: 1, minRow: 1 });
+    await expect(get).to.eql({
       formatted: [
         { '(A)': 'A1', '(B)': 'A2', '(C)': 'A3', '(D)': 'A4', '(E)': 'A5', '(F)': '' },
         { '(A)': 'B1', '(B)': '', '(C)': 'B3', '(D)': 'B4', '(E)': 'B5', '(F)': 'B6' },
@@ -55,8 +58,10 @@ describe('google-sheet', () => {
   });
 
   it('[4] appends data', async () => {
-    await expect(gsheet.appendData(data.append, { worksheetTitle, minCol: 1 })).resolves.toBeUndefined();
-    await expect(gsheet.getData({ minCol: 1, minRow: 1 })).resolves.toEqual({
+    const append = await gsheet.appendData(data.append, { worksheetTitle, minCol: 1 });
+    await expect(append).to.equal(undefined);
+    const get = await gsheet.getData({ minCol: 1, minRow: 1 });
+    await expect(get).to.eql({
       formatted: [
         { '(A)': 'A1', '(B)': 'A2', '(C)': 'A3', '(D)': 'A4', '(E)': 'A5', '(F)': '' },
         { '(A)': 'B1', '(B)': '', '(C)': 'B3', '(D)': 'B4', '(E)': 'B5', '(F)': 'B6' },
@@ -70,6 +75,7 @@ describe('google-sheet', () => {
   });
 
   it('[5] removes worksheet', async () => {
-    await expect(gsheet.removeWorksheet(worksheetTitle)).resolves.toBeUndefined();
+    const res = await gsheet.removeWorksheet(worksheetTitle);
+    await expect(res).to.equal(undefined);
   });
 });

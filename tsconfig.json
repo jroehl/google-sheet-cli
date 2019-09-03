@@ -7,7 +7,6 @@
     "rootDir": "src",
     "strict": true,
     "target": "es2017",
-    "types": ["node", "jest", "mocha"],
     "esModuleInterop": true
   },
   "include": ["src/**/*"]
