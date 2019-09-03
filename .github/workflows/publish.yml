@@ -31,6 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
+      - name: 'ci'
+        run: npm ci
+
       - name: 'semantic-release'
         run: |
           npm run semantic-release
