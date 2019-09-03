@@ -10,6 +10,7 @@
     "@oclif/command": "^1.5.18",
     "@oclif/config": "^1.13.3",
     "@oclif/plugin-help": "^2.2.1",
+    "cli-ux": "^5.3.2",
     "googleapis": "^42.0.0",
     "lodash.get": "^4.4.2",
     "semantic-release": "^15.13.24",
