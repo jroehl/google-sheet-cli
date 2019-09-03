@@ -1,12 +1,12 @@
-gsheet-cli
+google-sheet-cli
 ==========
 
 A simple helper cli to interact with google sheets.
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
-[![Version](https://img.shields.io/npm/v/gsheet-cli.svg)](https://npmjs.org/package/gsheet-cli)
-[![Downloads/week](https://img.shields.io/npm/dw/gsheet-cli.svg)](https://npmjs.org/package/gsheet-cli)
-[![License](https://img.shields.io/npm/l/gsheet-cli.svg)](https://github.com/jroehl/gsheet-cli/blob/master/package.json)
+[![Version](https://img.shields.io/npm/v/google-sheet-cli.svg)](https://npmjs.org/package/google-sheet-cli)
+[![Downloads/week](https://img.shields.io/npm/dw/google-sheet-cli.svg)](https://npmjs.org/package/google-sheet-cli)
+[![License](https://img.shields.io/npm/l/google-sheet-cli.svg)](https://github.com/jroehl/google-sheet-cli/blob/master/package.json)
 
 <!-- toc -->
 * [Usage](#usage)
@@ -16,36 +16,36 @@ A simple helper cli to interact with google sheets.
 # Usage
 <!-- usage -->
 ```sh-session
-$ npm install -g gsheet-cli
-$ gsheet COMMAND
+$ npm install -g google-sheet-cli
+$ google-sheet COMMAND
 running command...
-$ gsheet (-v|--version|version)
-gsheet-cli/0.0.0 darwin-x64 node-v10.16.0
-$ gsheet --help [COMMAND]
+$ google-sheet (-v|--version|version)
+google-sheet-cli/0.0.0 darwin-x64 node-v10.16.0
+$ google-sheet --help [COMMAND]
 USAGE
-  $ gsheet COMMAND
+  $ google-sheet COMMAND
 ...
 ```
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`gsheet data:append DATA`](#gsheet-dataappend-data)
-* [`gsheet data:get`](#gsheet-dataget)
-* [`gsheet data:update DATA`](#gsheet-dataupdate-data)
-* [`gsheet help [COMMAND]`](#gsheet-help-command)
-* [`gsheet spreadsheet:add`](#gsheet-spreadsheetadd)
-* [`gsheet spreadsheet:get`](#gsheet-spreadsheetget)
-* [`gsheet worksheet:add`](#gsheet-worksheetadd)
-* [`gsheet worksheet:get`](#gsheet-worksheetget)
-* [`gsheet worksheet:remove`](#gsheet-worksheetremove)
+* [`google-sheet data:append DATA`](#google-sheet-dataappend-data)
+* [`google-sheet data:get`](#google-sheet-dataget)
+* [`google-sheet data:update DATA`](#google-sheet-dataupdate-data)
+* [`google-sheet help [COMMAND]`](#google-sheet-help-command)
+* [`google-sheet spreadsheet:add`](#google-sheet-spreadsheetadd)
+* [`google-sheet spreadsheet:get`](#google-sheet-spreadsheetget)
+* [`google-sheet worksheet:add`](#google-sheet-worksheetadd)
+* [`google-sheet worksheet:get`](#google-sheet-worksheetget)
+* [`google-sheet worksheet:remove`](#google-sheet-worksheetremove)
 
-## `gsheet data:append DATA`
+## `google-sheet data:append DATA`
 
 Append cells with the specified data after the last row in starting col
 
 ```
 USAGE
-  $ gsheet data:append DATA
+  $ google-sheet data:append DATA
 
 ARGUMENTS
   DATA  Specifies the data as nested array [["1", "2", "3"]]
@@ -63,15 +63,15 @@ EXAMPLE
   Data successfully appended to "<worksheetTitle>"
 ```
 
-_See code: [src/commands/data/append.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/data/append.ts)_
+_See code: [src/commands/data/append.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/data/append.ts)_
 
-## `gsheet data:get`
+## `google-sheet data:get`
 
 Returns cell data
 
 ```
 USAGE
-  $ gsheet data:get
+  $ google-sheet data:get
 
 OPTIONS
   -h, --help                           show CLI help
@@ -101,15 +101,15 @@ EXAMPLE
   A3   B3   C3
 ```
 
-_See code: [src/commands/data/get.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/data/get.ts)_
+_See code: [src/commands/data/get.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/data/get.ts)_
 
-## `gsheet data:update DATA`
+## `google-sheet data:update DATA`
 
 Updates cells with the specified data
 
 ```
 USAGE
-  $ gsheet data:update DATA
+  $ google-sheet data:update DATA
 
 ARGUMENTS
   DATA  specifies the data as nested array [["1", "2", "3"]]
@@ -128,15 +128,15 @@ EXAMPLE
   Data successfully updated in "<worksheetTitle>"
 ```
 
-_See code: [src/commands/data/update.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/data/update.ts)_
+_See code: [src/commands/data/update.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/data/update.ts)_
 
-## `gsheet help [COMMAND]`
+## `google-sheet help [COMMAND]`
 
-display help for gsheet
+display help for google-sheet
 
 ```
 USAGE
-  $ gsheet help [COMMAND]
+  $ google-sheet help [COMMAND]
 
 ARGUMENTS
   COMMAND  command to show help for
@@ -147,13 +147,13 @@ OPTIONS
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.1/src/commands/help.ts)_
 
-## `gsheet spreadsheet:add`
+## `google-sheet spreadsheet:add`
 
 Add a worksheet with the specified title to the spreadsheet
 
 ```
 USAGE
-  $ gsheet spreadsheet:add
+  $ google-sheet spreadsheet:add
 
 OPTIONS
   -h, --help                           show CLI help
@@ -166,15 +166,15 @@ EXAMPLE
   Spreadsheet "<spreadsheetTitle>" (<id>) successfully created > https://docs.google.com/spreadsheets/d/<id>/edit
 ```
 
-_See code: [src/commands/spreadsheet/add.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/spreadsheet/add.ts)_
+_See code: [src/commands/spreadsheet/add.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/spreadsheet/add.ts)_
 
-## `gsheet spreadsheet:get`
+## `google-sheet spreadsheet:get`
 
 Get info for a specific spreadsheet
 
 ```
 USAGE
-  $ gsheet spreadsheet:get
+  $ google-sheet spreadsheet:get
 
 OPTIONS
   -h, --help                         show CLI help
@@ -187,15 +187,15 @@ EXAMPLE
   Fetched "<spreadsheetTitle>" (<id>) > https://docs.google.com/spreadsheets/d/<id>/edit
 ```
 
-_See code: [src/commands/spreadsheet/get.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/spreadsheet/get.ts)_
+_See code: [src/commands/spreadsheet/get.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/spreadsheet/get.ts)_
 
-## `gsheet worksheet:add`
+## `google-sheet worksheet:add`
 
 Add a worksheet with the specified title to the spreadsheet
 
 ```
 USAGE
-  $ gsheet worksheet:add
+  $ google-sheet worksheet:add
 
 OPTIONS
   -h, --help                           show CLI help
@@ -209,15 +209,15 @@ EXAMPLE
   Worksheet "<worksheetTitle>" (<id>) successfully created
 ```
 
-_See code: [src/commands/worksheet/add.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/worksheet/add.ts)_
+_See code: [src/commands/worksheet/add.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/worksheet/add.ts)_
 
-## `gsheet worksheet:get`
+## `google-sheet worksheet:get`
 
 Get info for a specific worksheet
 
 ```
 USAGE
-  $ gsheet worksheet:get
+  $ google-sheet worksheet:get
 
 OPTIONS
   -h, --help                           show CLI help
@@ -231,15 +231,15 @@ EXAMPLE
   Fetched "<worksheetTitle>" (<id>)
 ```
 
-_See code: [src/commands/worksheet/get.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/worksheet/get.ts)_
+_See code: [src/commands/worksheet/get.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/worksheet/get.ts)_
 
-## `gsheet worksheet:remove`
+## `google-sheet worksheet:remove`
 
 Remove a worksheet with the specified title from the spreadsheet
 
 ```
 USAGE
-  $ gsheet worksheet:remove
+  $ google-sheet worksheet:remove
 
 OPTIONS
   -h, --help                           show CLI help
@@ -253,7 +253,7 @@ EXAMPLE
   Worksheet "<worksheetTitle>" successfully removed
 ```
 
-_See code: [src/commands/worksheet/remove.ts](https://github.com/jroehl/gsheet-cli/blob/v0.0.0/src/commands/worksheet/remove.ts)_
+_See code: [src/commands/worksheet/remove.ts](https://github.com/jroehl/google-sheet-cli/blob/v0.0.0/src/commands/worksheet/remove.ts)_
 <!-- commandsstop -->
 
 

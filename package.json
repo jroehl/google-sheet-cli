@@ -1,11 +1,11 @@
 {
-  "name": "gsheet-cli",
+  "name": "google-sheet-cli",
   "description": "A simple helper cli to interact with google sheets.",
   "version": "0.0.0",
   "bin": {
-    "gsheet": "./bin/run"
+    "google-sheet": "./bin/run"
   },
-  "bugs": "https://github.com/jroehl/gsheet-cli/issues",
+  "bugs": "https://github.com/jroehl/google-sheet-cli/issues",
   "dependencies": {
     "@oclif/command": "^1.5.18",
     "@oclif/config": "^1.13.3",
@@ -38,7 +38,7 @@
     "/npm-shrinkwrap.json",
     "/oclif.manifest.json"
   ],
-  "homepage": "https://github.com/jroehl/gsheet-cli",
+  "homepage": "https://github.com/jroehl/google-sheet-cli",
   "keywords": [
     "oclif",
     "cli",
@@ -49,7 +49,7 @@
   "main": "lib/index.js",
   "oclif": {
     "commands": "./lib/commands",
-    "bin": "gsheet",
+    "bin": "google-sheet",
     "plugins": [
       "@oclif/plugin-help"
     ],
@@ -65,7 +65,7 @@
       }
     }
   },
-  "repository": "jroehl/gsheet-cli",
+  "repository": "jroehl/google-sheet-cli",
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
     "version": "oclif-dev readme && git add README.md",
