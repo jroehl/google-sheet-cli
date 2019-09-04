@@ -2,40 +2,41 @@ import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
 import { colToA, getRange, getLongestArray, parseRanges } from './utils';
 
-export interface Credentials {
-  client_email: string;
-  private_key: string;
-}
+export namespace GoogleSheetCli {
+  export interface Credentials {
+    client_email: string;
+    private_key: string;
+  }
 
-type RawData = (string | number | boolean | null)[][];
+  export type RawData = (string | number | boolean | null)[][];
 
-enum ValueInputOption {
-  INPUT_VALUE_OPTION_UNSPECIFIED = 'INPUT_VALUE_OPTION_UNSPECIFIED',
-  USER_ENTERED = 'USER_ENTERED',
-  RAW = 'RAW',
-}
+  export enum ValueInputOption {
+    INPUT_VALUE_OPTION_UNSPECIFIED = 'INPUT_VALUE_OPTION_UNSPECIFIED',
+    USER_ENTERED = 'USER_ENTERED',
+    RAW = 'RAW',
+  }
 
-export interface QueryOptions {
-  minCol?: number;
-  maxCol?: number;
-  minRow?: number;
-  maxRow?: number;
-  range?: string;
-  valueInputOption?: ValueInputOption;
-  worksheetTitle?: string;
-  returnEmpty?: boolean;
-  hasHeaderRow?: boolean;
-}
+  export interface QueryOptions {
+    minCol?: number;
+    maxCol?: number;
+    minRow?: number;
+    maxRow?: number;
+    range?: string;
+    valueInputOption?: ValueInputOption;
+    worksheetTitle?: string;
+    hasHeaderRow?: boolean;
+  }
 
-export interface FormattedData {
-  [name: string]: string;
-}
+  export interface FormattedData {
+    [name: string]: string;
+  }
 
-export interface SheetData {
-  rawData: RawData;
-  formatted: FormattedData[];
-  header: string[];
-  range: string;
+  export interface SheetData {
+    rawData: RawData;
+    formatted: FormattedData[];
+    header: string[];
+    range: string;
+  }
 }
 
 const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
@@ -48,23 +49,23 @@ const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
  */
 export default class GoogleSheet {
   private sheets!: sheets_v4.Sheets;
-  private worksheetTitle: string = '';
 
   /**
    * Creates an instance of GoogleSheet.
    * @param {string} [spreadsheetId]
+   * @param {string} [worksheetTitle]
    * @memberof GoogleSheet
    */
-  constructor(private spreadsheetId?: string) {}
+  constructor(private spreadsheetId?: string, private worksheetTitle?: string) {}
 
   /**
    * Authorize with credentials
    *
-   * @param {Credentials} credentials
+   * @param {GoogleSheetCli.Credentials} credentials
    * @returns {Promise<void>}
    * @memberof GoogleSheet
    */
-  async authorize(credentials: Credentials): Promise<void> {
+  async authorize(credentials: GoogleSheetCli.Credentials): Promise<void> {
     credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
     // Create the JWT client
     const auth = await google.auth.getClient({ credentials, scopes: [GOOGLE_FEED_URL] });
@@ -107,12 +108,12 @@ export default class GoogleSheet {
   /**
    * Get the data of the specified cells (or every available cell data)
    *
-   * @param {QueryOptions} [options={}]
+   * @param {GoogleSheetCli.QueryOptions} [options={}]
    * @param {string} [spreadsheetId]
-   * @returns {Promise<SheetData>}
+   * @returns {Promise<GoogleSheetCli.SheetData>}
    * @memberof GoogleSheet
    */
-  async getData(options: QueryOptions = {}, spreadsheetId?: string): Promise<SheetData> {
+  async getData(options: GoogleSheetCli.QueryOptions = {}, spreadsheetId?: string): Promise<GoogleSheetCli.SheetData> {
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
     const parsedOptions = parseRanges(options)[0];
     const { worksheetTitle: wsTitle } = parsedOptions;
@@ -123,7 +124,7 @@ export default class GoogleSheet {
     const sheet = await this.getWorksheet(wsTitle, spreadsheetId);
     const { rowCount = 0, columnCount = 0 } = sheet && sheet.properties && sheet.properties.gridProperties ? sheet.properties.gridProperties : {};
 
-    const sanitizedOptions: QueryOptions = {
+    const sanitizedOptions: GoogleSheetCli.QueryOptions = {
       ...parsedOptions,
       maxCol: parsedOptions.maxCol || columnCount,
       maxRow: parsedOptions.maxRow || rowCount,
@@ -169,8 +170,8 @@ export default class GoogleSheet {
       header[c] = header[c] || `(${colToA(c + (sanitizedOptions.minCol || 0))})`;
     }
 
-    let formatted: FormattedData[] = [];
-    let rawData: RawData = [];
+    let formatted: GoogleSheetCli.FormattedData[] = [];
+    let rawData: GoogleSheetCli.RawData = [];
     for (let r = 0; r < maxRow; r++) {
       const row = values[r] || [];
       const rawRow = [];
@@ -191,14 +192,14 @@ export default class GoogleSheet {
   /**
    * Append row data to a worksheet, starting after the last row in a specific column
    *
-   * @param {RawData} data
-   * @param {QueryOptions} options
+   * @param {GoogleSheetCli.RawData} data
+   * @param {GoogleSheetCli.QueryOptions} options
    * @param {string} [spreadsheetId]
    * @returns {Promise<void>}
    * @memberof GoogleSheet
    */
-  async appendData(data: RawData, options: QueryOptions, spreadsheetId?: string): Promise<void> {
-    const { rawData }: SheetData = await this.getData(options, spreadsheetId);
+  async appendData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
+    const { rawData }: GoogleSheetCli.SheetData = await this.getData(options, spreadsheetId);
     options.minRow = rawData.length + 1;
     await this.updateData(data, options, spreadsheetId);
   }
@@ -206,13 +207,13 @@ export default class GoogleSheet {
   /**
    * Update the data starting at a specific row and column
    *
-   * @param {RawData} data [['A1', 'A2', 'A3', 'A4', 'A5'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']]
-   * @param {QueryOptions} options
+   * @param {GoogleSheetCli.RawData} data [['A1', 'A2', 'A3', 'A4', 'A5'], ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']]
+   * @param {GoogleSheetCli.QueryOptions} options
    * @param {string} [spreadsheetId]
    * @returns {Promise<void>}
    * @memberof GoogleSheet
    */
-  async updateData(data: RawData, options: QueryOptions, spreadsheetId?: string): Promise<void> {
+  async updateData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
     if (!options.worksheetTitle) throw 'Specify worksheetTitle';
     if (!Array.isArray(data) || !data.every(Array.isArray)) throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
@@ -220,7 +221,7 @@ export default class GoogleSheet {
     const range = getRange(options);
     await this.sheets.spreadsheets.values.update({
       spreadsheetId: spreadsheetId || this.spreadsheetId,
-      valueInputOption: options.valueInputOption || ValueInputOption.RAW,
+      valueInputOption: options.valueInputOption || GoogleSheetCli.ValueInputOption.RAW,
       range,
       requestBody: {
         values: data,

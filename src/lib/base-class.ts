@@ -1,4 +1,3 @@
-// src/base.ts
 import Command, { flags } from '@oclif/command';
 import cli from 'cli-ux';
 import GoogleSheet from './google-sheet';

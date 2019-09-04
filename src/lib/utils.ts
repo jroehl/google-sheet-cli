@@ -1,5 +1,4 @@
-import { QueryOptions } from './google-sheet';
-import { worksheetTitle } from './base-class';
+import { GoogleSheetCli } from './google-sheet';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -81,10 +80,10 @@ const parseA1Notation = (a1Notation: string = ''): { col: number; row: number } 
 /**
  * Parse a range from a1Notation to options
  *
- * @param {QueryOptions} [options={}]
- * @returns {QueryOptions[]}
+ * @param {GoogleSheetCli.QueryOptions} [options={}]
+ * @returns {GoogleSheetCli.QueryOptions[]}
  */
-export const parseRanges = (options: QueryOptions = {}): QueryOptions[] => {
+export const parseRanges = (options: GoogleSheetCli.QueryOptions = {}): GoogleSheetCli.QueryOptions[] => {
   if (!options.range) return [options];
   const [title, a1Notations = ''] = options.range.split('!');
 
@@ -118,10 +117,10 @@ export const parseRanges = (options: QueryOptions = {}): QueryOptions[] => {
 /**
  * Convert query options to range notation
  *
- * @param {QueryOptions} [options={}]
+ * @param {GoogleSheetCli.QueryOptions} [options={}]
  * @returns {string}
  */
-export const getRange = (options: QueryOptions = {}): string => {
+export const getRange = (options: GoogleSheetCli.QueryOptions = {}): string => {
   const { minCol, minRow, maxCol, maxRow, worksheetTitle, range } = options;
   if (range) return range;
   const title = `'${worksheetTitle}'`;

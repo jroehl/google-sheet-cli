@@ -1,3 +1,3 @@
-import GoogleSheet from './lib/google-sheet';
+import GoogleSheet, { GoogleSheetCli } from './lib/google-sheet';
 import { run } from '@oclif/command';
-export { GoogleSheet, run };
+export { run, GoogleSheet, GoogleSheetCli };

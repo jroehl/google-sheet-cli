@@ -1,7 +1,5 @@
 # google-sheet-cli
 
-==========
-
 A simple helper cli to interact with google sheets.
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
