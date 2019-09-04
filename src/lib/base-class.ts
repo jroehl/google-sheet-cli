@@ -14,6 +14,13 @@ export const worksheetTitle = flags.string({
   required: true,
 });
 
+export const data = {
+  name: 'data',
+  type: 'string',
+  description: 'The data to be used as a JSON string - nested array [["1", "2", "3"]]',
+  required: true,
+};
+
 export default abstract class extends Command {
   private rawLogs: boolean = false;
   public gsheet!: GoogleSheet;

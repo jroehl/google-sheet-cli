@@ -28,6 +28,6 @@ Spreadsheet "<spreadsheetTitle>" (<id>) successfully created > https://docs.goog
     const spreadsheet = await this.gsheet.addSpreadsheet(spreadsheetTitle);
     const { spreadsheetId, properties: { title = '' } = {}, spreadsheetUrl } = spreadsheet;
     this.stop();
-    this.logRaw(`Spreadsheet "${title}" (${spreadsheetId}) successfully created > ${spreadsheetUrl}`, spreadsheet);
+    this.logRaw(`Spreadsheet "${title}" (${spreadsheetId}) successfully created > ${spreadsheetUrl}`, { operation: this.id, ...spreadsheet });
   }
 }

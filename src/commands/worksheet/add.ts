@@ -25,6 +25,6 @@ Worksheet "<worksheetTitle>" (<id>) successfully created
     const worksheet = await this.gsheet.addWorksheet(worksheetTitle, spreadsheetId);
     const { properties: { title = '', sheetId = '' } = {} } = worksheet;
     this.stop();
-    this.logRaw(`Worksheet "${title}" (${sheetId}) successfully created`, worksheet);
+    this.logRaw(`Worksheet "${title}" (${sheetId}) successfully created`, { operation: this.id, ...worksheet });
   }
 }

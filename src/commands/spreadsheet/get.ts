@@ -24,6 +24,6 @@ Fetched "<spreadsheetTitle>" (<id>) > https://docs.google.com/spreadsheets/d/<id
     const spreadsheet = await this.gsheet.getSpreadsheet(spreadsheetId);
     const { spreadsheetId: id = '', properties: { title = '' } = {}, spreadsheetUrl } = spreadsheet;
     this.stop();
-    this.logRaw(`Fetched spreadsheet "${title}" (${id}) > ${spreadsheetUrl}`, spreadsheet);
+    this.logRaw(`Fetched spreadsheet "${title}" (${id}) > ${spreadsheetUrl}`, { operation: this.id, ...spreadsheet });
   }
 }

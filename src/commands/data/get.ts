@@ -37,7 +37,7 @@ A3   B3   C3
     const res = await this.gsheet.getData({ minRow, maxRow, minCol, maxCol, range, hasHeaderRow, worksheetTitle }, spreadsheetId);
 
     if (rawOutput) {
-      this.logRaw('', res);
+      this.logRaw('', { operation: this.id, ...res });
       return;
     }
 

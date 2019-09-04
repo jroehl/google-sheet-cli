@@ -9,6 +9,7 @@ describe(baseCommand, () => {
   });
   testRun([baseCommand, '[["1", "2"], ["foo"]]', '--rawOutput'], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:append',
       worksheetTitle,
       data: [['1', '2'], ['foo']],
     });

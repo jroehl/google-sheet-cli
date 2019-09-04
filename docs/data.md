@@ -16,7 +16,7 @@ USAGE
   $ google-sheet data:append DATA
 
 ARGUMENTS
-  DATA  Specifies the data as nested array [["1", "2", "3"]]
+  DATA  The data to be used as a JSON string - nested array [["1", "2", "3"]]
 
 OPTIONS
   -h, --help                           show CLI help
@@ -80,15 +80,15 @@ USAGE
   $ google-sheet data:update DATA
 
 ARGUMENTS
-  DATA  specifies the data as nested array [["1", "2", "3"]]
+  DATA  The data to be used as a JSON string - nested array [["1", "2", "3"]]
 
 OPTIONS
   -h, --help                           show CLI help
   -r, --rawOutput                      Get the raw output as a JSON string
   -s, --spreadsheetId=spreadsheetId    (required) ID of the spreadsheet to use
   -t, --worksheetTitle=worksheetTitle  (required) Title of the worksheet to use
-  --minCol=minCol                      [default: 1] the optional starting col of the operation
-  --minRow=minRow                      [default: 1] the optional starting row of the operation
+  --minCol=minCol                      [default: 1] The optional starting col of the operation
+  --minRow=minRow                      [default: 1] The optional starting row of the operation
 
 EXAMPLE
   $ gsheet data:update --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle> --data='[["1", "2", "3"]]'

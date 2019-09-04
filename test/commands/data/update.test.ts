@@ -9,6 +9,7 @@ describe(baseCommand, () => {
   });
   testRun([baseCommand, '[["1", "2"], ["foo"]]', '--rawOutput'], worksheetTitle, async (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:update',
       worksheetTitle,
       data: [['1', '2'], ['foo']],
     });

@@ -15,6 +15,7 @@ describe(baseCommand, () => {
 
   testRun([baseCommand, '--rawOutput'], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:get',
       rawData: [['A1', 'B1', 'C1'], ['', 'B2', 'C2'], ['A3', '', 'C3'], ['A4', 'B4', ''], ['A5', '', 'C5'], ['', 'B6', 'C6'], ['A7', 'B7', 'C7']],
       formatted: [
         {
@@ -60,6 +61,7 @@ describe(baseCommand, () => {
 
   testRun([baseCommand, '--rawOutput', '--hasHeaderRow'], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:get',
       rawData: [['', 'B2', 'C2'], ['A3', '', 'C3'], ['A4', 'B4', ''], ['A5', '', 'C5'], ['', 'B6', 'C6'], ['A7', 'B7', 'C7']],
       formatted: [
         {
@@ -100,6 +102,7 @@ describe(baseCommand, () => {
 
   testRun([baseCommand, '--rawOutput', '--hasHeaderRow', '--minCol=2', '--minRow=2', '--maxCol=2', '--maxRow=2'], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:get',
       rawData: [['B2']],
       formatted: [
         {
@@ -113,6 +116,7 @@ describe(baseCommand, () => {
 
   testRun([baseCommand, '--rawOutput', '--hasHeaderRow', `--range='${worksheetTitle}'!C3`], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:get',
       rawData: [['C3']],
       formatted: [
         {
@@ -126,6 +130,7 @@ describe(baseCommand, () => {
 
   testRun([baseCommand, '--rawOutput', '--hasHeaderRow', `--range='${worksheetTitle}'!A2`], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
+      operation: 'data:get',
       rawData: [],
       formatted: [],
       header: ['A1'],
