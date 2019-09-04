@@ -11,7 +11,6 @@ export namespace GoogleSheetCli {
   export type RawData = (string | number | boolean | null)[][];
 
   export enum ValueInputOption {
-    INPUT_VALUE_OPTION_UNSPECIFIED = 'INPUT_VALUE_OPTION_UNSPECIFIED',
     USER_ENTERED = 'USER_ENTERED',
     RAW = 'RAW',
   }

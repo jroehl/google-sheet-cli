@@ -1,6 +1,6 @@
 import Command, { flags } from '@oclif/command';
 import cli from 'cli-ux';
-import GoogleSheet from './google-sheet';
+import GoogleSheet, { GoogleSheetCli } from './google-sheet';
 
 export const spreadsheetId = flags.string({
   char: 's',
@@ -12,6 +12,13 @@ export const worksheetTitle = flags.string({
   char: 't',
   description: 'Title of the worksheet to use',
   required: true,
+});
+
+export const valueInputOption = flags.string({
+  char: 'v',
+  description: 'The style of the input ("RAW" or "USER_ENTERED")',
+  required: false,
+  default: GoogleSheetCli.ValueInputOption.RAW,
 });
 
 export const data = {
