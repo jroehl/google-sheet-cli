@@ -65,7 +65,7 @@ export default abstract class extends Command {
   async init() {
     // do some initialization
     const { flags } = this.parse(<any>this.constructor);
-    this.rawLogs = flags && flags.rawOutput;
+    this.rawLogs = flags && (flags as any).rawOutput;
 
     const {
       GSHEET_CLIENT_EMAIL = await cli.prompt('What is your client email?', { type: 'hide' }),
