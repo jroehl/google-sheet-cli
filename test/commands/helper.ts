@@ -1,9 +1,9 @@
 import { test } from '@oclif/test';
 
-export const WORKSHEET_TITLE_CHANGE = '<do-not-change>';
-export const WORKSHEET_TITLE_DELETE = '<do-not-delete>';
-export const WORKSHEET_TITLE_ADD = '<test-add>';
-export const WORKSHEET_TITLE_REMOVE = '<test-remove>';
+export const WORKSHEET_TITLE_CHANGE = '<google-sheet-cli_do-not-change>';
+export const WORKSHEET_TITLE_DELETE = '<google-sheet-cli_do-not-delete>';
+export const WORKSHEET_TITLE_ADD = '<google-sheet-cli_test-add>';
+export const WORKSHEET_TITLE_REMOVE = '<google-sheet-cli_test-remove>';
 export const SPREADSHEET_ID = process.env.TEST_SPREADSHEET_ID;
 
 export const getCmd = (parts: string[], worksheetTitle?: string): string[] => {
@@ -21,7 +21,7 @@ export const testRun = (cmd: string[], worksheetTitle?: string, cb: Function = (
   test
     .stdout()
     .command(parsedCommand)
-    .it(`runs "${parsedCommand.join(' ')}"`, ctx => {
+    .it(`runs "${parsedCommand.join(' ')}"`, (ctx) => {
       if (!commandString.includes('--rawOutput')) {
         cb(ctx.stdout);
         return;

@@ -50,7 +50,7 @@ OPTIONS
   -w, --hasHeaderRow                   If the first row should be treated as header row
   -x, --extended                       show extra columns
   --columns=columns                    only show provided columns (comma-separated)
-  --csv                                output is csv format
+  --csv                                output is csv format [alias: --output=csv]
   --filter=filter                      filter property by partial string matching, ex: name=foo
   --maxCol=maxCol                      The optional ending col of the operation
   --maxRow=maxRow                      The optional ending row of the operation
@@ -58,6 +58,7 @@ OPTIONS
   --minRow=minRow                      [default: 1] The optional starting row of the operation
   --no-header                          hide table header from output
   --no-truncate                        do not truncate output to fit screen
+  --output=csv|json|yaml               output in a more machine friendly format
   --range=range                        The range to use to query the cells
   --sort=sort                          property to sort by (prepend '-' for descending)
 

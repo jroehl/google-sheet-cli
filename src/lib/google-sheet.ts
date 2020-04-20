@@ -121,12 +121,12 @@ export default class GoogleSheet {
     }
 
     const sheet = await this.getWorksheet(wsTitle, spreadsheetId);
-    const { rowCount = 0, columnCount = 0 } = sheet && sheet.properties && sheet.properties.gridProperties ? sheet.properties.gridProperties : {};
+    const { rowCount = 0, columnCount = 0 } = sheet?.properties?.gridProperties || {};
 
     const sanitizedOptions: GoogleSheetCli.QueryOptions = {
       ...parsedOptions,
-      maxCol: parsedOptions.maxCol || columnCount,
-      maxRow: parsedOptions.maxRow || rowCount,
+      maxCol: parsedOptions.maxCol || columnCount || 0,
+      maxRow: parsedOptions.maxRow || rowCount || 0,
     };
 
     const res = await this.sheets.spreadsheets.values.get({
@@ -296,7 +296,9 @@ export default class GoogleSheet {
         },
       },
     });
-    this.spreadsheetId = sheet.spreadsheetId;
+    if (sheet.spreadsheetId) {
+      this.spreadsheetId = sheet.spreadsheetId;
+    }
     return sheet;
   }
 }
