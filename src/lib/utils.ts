@@ -96,7 +96,7 @@ export const parseRanges = (options: GoogleSheetCli.QueryOptions = {}): GoogleSh
   return a1Notations
     .replace(/[,;]/g, ',')
     .split(',')
-    .map(a1Notation => {
+    .map((a1Notation) => {
       const [from, to] = a1Notation.split(':');
       const { col: minCol, row: minRow } = parseA1Notation(from);
       const { col: maxCol, row: maxRow } = parseA1Notation(to);

@@ -3,7 +3,11 @@ import { getLongestArray, colToA, aToCol, getRange, parseRanges } from '../src/l
 
 describe('lib', () => {
   it('getLongestArray', async () => {
-    const res = getLongestArray([['a', 'b', 'c'], ['a', 'b'], ['a', 'b', 'c', 'd']]);
+    const res = getLongestArray([
+      ['a', 'b', 'c'],
+      ['a', 'b'],
+      ['a', 'b', 'c', 'd'],
+    ]);
     expect(res).to.eql({ array: ['a', 'b', 'c', 'd'], index: 2, length: 4 });
   });
 

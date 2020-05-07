@@ -1,0 +1,10 @@
+{
+  "require": ["ts-node/register", "source-map-support/register"],
+  "extension": ["ts"],
+  "recursive": true,
+  "delay": false,
+  "timeout": 15000,
+  "reporter": "spec",
+  "forbid-only": true,
+  "file": "test/commands/hooks.test.ts"
+}

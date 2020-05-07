@@ -1,9 +1,10 @@
-import { testRun, WORKSHEET_TITLE_DELETE, WORKSHEET_TITLE_ADD, WORKSHEET_TITLE_REMOVE } from './helper';
+import { removeTestWorksheets, addTestWorksheets, addTestData } from './helper';
 
-const clean = ['data:update', '[["", ""], ["", ""], ["", ""], ["", ""]]'];
+before('Initialize worksheets', async () => {
+  await addTestData();
+  await addTestWorksheets();
+});
 
-before(() => {
-  testRun(clean, WORKSHEET_TITLE_DELETE);
-  testRun(['worksheet:add'], WORKSHEET_TITLE_REMOVE);
-  testRun(['worksheet:remove'], WORKSHEET_TITLE_ADD);
+after('Tear down worksheets', async () => {
+  await removeTestWorksheets();
 });

@@ -1,17 +1,20 @@
 import { expect } from '@oclif/test';
-import { testRun, WORKSHEET_TITLE_DELETE as worksheetTitle } from '../helper';
+import { testRun, DATA_UPDATE as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:update';
 
+const DATA = [['1', '2'], ['foo']];
+const DATA_STRING = JSON.stringify(DATA);
+
 describe(baseCommand, () => {
-  testRun([baseCommand, '[["1", "2"], ["foo"]]'], worksheetTitle, async (stdout: string) => {
+  testRun([baseCommand, DATA_STRING], worksheetTitle, async (stdout: string) => {
     expect(stdout).to.contain(`Data successfully updated in "${worksheetTitle}"`);
   });
-  testRun([baseCommand, '[["1", "2"], ["foo"]]', '--rawOutput'], worksheetTitle, async (parsed: {}) => {
+  testRun([baseCommand, DATA_STRING, '--rawOutput'], worksheetTitle, async (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:update',
       worksheetTitle,
-      data: [['1', '2'], ['foo']],
+      data: DATA,
     });
   });
 });

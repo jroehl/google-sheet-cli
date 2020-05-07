@@ -272,7 +272,7 @@ export default class GoogleSheet {
         requests: [
           {
             deleteSheet: {
-              sheetId: sheet.properties && sheet.properties.sheetId ? sheet.properties.sheetId : -1,
+              sheetId: sheet.properties?.sheetId || -1,
             },
           },
         ],

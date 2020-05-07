@@ -1,15 +1,22 @@
 import { expect } from '@oclif/test';
 import GoogleSheet from '../src/lib/google-sheet';
 import { sheets_v4 } from 'googleapis';
+import { getID } from './commands/helper';
 
 const data = {
-  new: [['A1', 'A2', 'A3', 'A4', 'A5'], ['B1', '', 'B3', 'B4', 'B5', 'B6']],
-  append: [['C1', 'C2', 'C3'], ['D1', 'D2', 'D3', 'D4', 'D5']],
+  new: [
+    ['A1', 'A2', 'A3', 'A4', 'A5'],
+    ['B1', '', 'B3', 'B4', 'B5', 'B6'],
+  ],
+  append: [
+    ['C1', 'C2', 'C3'],
+    ['D1', 'D2', 'D3', 'D4', 'D5'],
+  ],
 };
 
 describe('google-sheet', () => {
   let gsheet: GoogleSheet;
-  const worksheetTitle = `test-google-sheets-${Date.now()}`;
+  const worksheetTitle = getID();
   const { TEST_SPREADSHEET_ID = '', GSHEET_CLIENT_EMAIL = '', GSHEET_PRIVATE_KEY = '' } = process.env;
 
   before(async () => {
@@ -53,7 +60,10 @@ describe('google-sheet', () => {
       ],
       header: ['(A)', '(B)', '(C)', '(D)', '(E)', '(F)'],
       range: `'${worksheetTitle}'!A1:Z1000`,
-      rawData: [['A1', 'A2', 'A3', 'A4', 'A5', ''], ['B1', '', 'B3', 'B4', 'B5', 'B6']],
+      rawData: [
+        ['A1', 'A2', 'A3', 'A4', 'A5', ''],
+        ['B1', '', 'B3', 'B4', 'B5', 'B6'],
+      ],
     });
   });
 
@@ -70,7 +80,12 @@ describe('google-sheet', () => {
       ],
       header: ['(A)', '(B)', '(C)', '(D)', '(E)', '(F)'],
       range: `'${worksheetTitle}'!A1:Z1000`,
-      rawData: [['A1', 'A2', 'A3', 'A4', 'A5', ''], ['B1', '', 'B3', 'B4', 'B5', 'B6'], ['C1', 'C2', 'C3', '', '', ''], ['D1', 'D2', 'D3', 'D4', 'D5', '']],
+      rawData: [
+        ['A1', 'A2', 'A3', 'A4', 'A5', ''],
+        ['B1', '', 'B3', 'B4', 'B5', 'B6'],
+        ['C1', 'C2', 'C3', '', '', ''],
+        ['D1', 'D2', 'D3', 'D4', 'D5', ''],
+      ],
     });
   });
 

@@ -1,0 +1,6 @@
+{
+  "extension": [".ts"],
+  "include": ["test/**/*.ts"],
+  "exclude": ["**/*.d.ts"],
+  "all": true
+}

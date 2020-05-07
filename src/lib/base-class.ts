@@ -6,19 +6,22 @@ export const spreadsheetId = flags.string({
   char: 's',
   description: 'ID of the spreadsheet to use',
   required: true,
+  env: 'SPREADSHEET_ID',
 });
 
 export const worksheetTitle = flags.string({
   char: 't',
   description: 'Title of the worksheet to use',
   required: true,
+  env: 'WORKSHEET_TITLE',
 });
-
 export const valueInputOption = flags.string({
   char: 'v',
   description: 'The style of the input ("RAW" or "USER_ENTERED")',
   required: false,
+  options: [GoogleSheetCli.ValueInputOption.RAW, GoogleSheetCli.ValueInputOption.USER_ENTERED],
   default: GoogleSheetCli.ValueInputOption.RAW,
+  env: 'VALUE_INPUT_OPTION',
 });
 
 export const data = {
@@ -26,6 +29,7 @@ export const data = {
   type: 'string',
   description: 'The data to be used as a JSON string - nested array [["1", "2", "3"]]',
   required: true,
+  env: 'DATA',
 };
 
 export default abstract class extends Command {
@@ -82,13 +86,7 @@ export default abstract class extends Command {
   }
 
   async catch(err: Error) {
-    this.stop('errored');
-    this.error(err.message || err);
-    process.exit(1);
+    this.error(err, { exit: 1 });
     // handle any error from the command
-  }
-
-  async finally(err: Error) {
-    // called after run and catch regardless of whether or not the command errored
   }
 }

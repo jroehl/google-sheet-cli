@@ -23,7 +23,7 @@ OPTIONS
   -r, --rawOutput                          Get the raw output as a JSON string
   -s, --spreadsheetId=spreadsheetId        (required) ID of the spreadsheet to use
   -t, --worksheetTitle=worksheetTitle      (required) Title of the worksheet to use
-  -v, --valueInputOption=valueInputOption  [default: RAW] The style of the input ("RAW" or "USER_ENTERED")
+  -v, --valueInputOption=RAW|USER_ENTERED  [default: RAW] The style of the input ("RAW" or "USER_ENTERED")
   --minCol=minCol                          [default: 1] The optional starting col of the operation
 
 EXAMPLE
@@ -89,7 +89,7 @@ OPTIONS
   -r, --rawOutput                          Get the raw output as a JSON string
   -s, --spreadsheetId=spreadsheetId        (required) ID of the spreadsheet to use
   -t, --worksheetTitle=worksheetTitle      (required) Title of the worksheet to use
-  -v, --valueInputOption=valueInputOption  [default: RAW] The style of the input ("RAW" or "USER_ENTERED")
+  -v, --valueInputOption=RAW|USER_ENTERED  [default: RAW] The style of the input ("RAW" or "USER_ENTERED")
   --minCol=minCol                          [default: 1] The optional starting col of the operation
   --minRow=minRow                          [default: 1] The optional starting row of the operation
 

@@ -1,5 +1,5 @@
 import { expect } from '@oclif/test';
-import { testRun, WORKSHEET_TITLE_ADD as worksheetTitle } from '../helper';
+import { testRun, WORKSHEET_ADD as worksheetTitle } from '../helper';
 import { sheets_v4 } from 'googleapis';
 
 const baseCommand = 'worksheet:add';

@@ -1,5 +1,5 @@
 import { expect } from '@oclif/test';
-import { testRun, WORKSHEET_TITLE_REMOVE as worksheetTitle } from '../helper';
+import { testRun, WORKSHEET_REMOVE as worksheetTitle } from '../helper';
 import { sheets_v4 } from 'googleapis';
 
 const baseCommand = 'worksheet:remove';

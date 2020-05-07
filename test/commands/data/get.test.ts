@@ -1,5 +1,5 @@
 import { expect } from '@oclif/test';
-import { testRun, WORKSHEET_TITLE_CHANGE as worksheetTitle } from '../helper';
+import { testRun, DATA_GET as worksheetTitle, RAW_DATA } from '../helper';
 
 const baseCommand = 'data:get';
 
@@ -16,7 +16,7 @@ describe(baseCommand, () => {
   testRun([baseCommand, '--rawOutput'], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
-      rawData: [['A1', 'B1', 'C1'], ['', 'B2', 'C2'], ['A3', '', 'C3'], ['A4', 'B4', ''], ['A5', '', 'C5'], ['', 'B6', 'C6'], ['A7', 'B7', 'C7']],
+      rawData: RAW_DATA,
       formatted: [
         {
           '(A)': 'A1',
@@ -55,14 +55,21 @@ describe(baseCommand, () => {
         },
       ],
       header: ['(A)', '(B)', '(C)'],
-      range: `'${worksheetTitle}'!A1:Z1000`,
+      range: `${worksheetTitle}!A1:Z1000`,
     });
   });
 
   testRun([baseCommand, '--rawOutput', '--hasHeaderRow'], worksheetTitle, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
-      rawData: [['', 'B2', 'C2'], ['A3', '', 'C3'], ['A4', 'B4', ''], ['A5', '', 'C5'], ['', 'B6', 'C6'], ['A7', 'B7', 'C7']],
+      rawData: [
+        ['', 'B2', 'C2'],
+        ['A3', '', 'C3'],
+        ['A4', 'B4', ''],
+        ['A5', '', 'C5'],
+        ['', 'B6', 'C6'],
+        ['A7', 'B7', 'C7'],
+      ],
       formatted: [
         {
           A1: '',
@@ -96,7 +103,7 @@ describe(baseCommand, () => {
         },
       ],
       header: ['A1', 'B1', 'C1'],
-      range: `'${worksheetTitle}'!A1:Z1000`,
+      range: `${worksheetTitle}!A1:Z1000`,
     });
   });
 
@@ -110,7 +117,7 @@ describe(baseCommand, () => {
         },
       ],
       header: ['B1'],
-      range: `'${worksheetTitle}'!B2`,
+      range: `${worksheetTitle}!B2`,
     });
   });
 
@@ -124,7 +131,7 @@ describe(baseCommand, () => {
         },
       ],
       header: ['C1'],
-      range: `'${worksheetTitle}'!C3`,
+      range: `${worksheetTitle}!C3`,
     });
   });
 
@@ -134,7 +141,7 @@ describe(baseCommand, () => {
       rawData: [],
       formatted: [],
       header: ['A1'],
-      range: `'${worksheetTitle}'!A2`,
+      range: `${worksheetTitle}!A2`,
     });
   });
 });
