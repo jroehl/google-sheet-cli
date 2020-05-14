@@ -15,7 +15,7 @@
     "husky": "^4.2.5",
     "lodash.get": "^4.4.2",
     "semantic-release": "^17.0.6",
-    "tslib": "^1.11.2"
+    "tslib": "^2.0.0"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1.22.2",
