@@ -22,7 +22,7 @@
     "@oclif/test": "^1.2.5",
     "@types/chai": "^4.2.11",
     "@types/lodash.get": "^4.4.6",
-    "@types/mocha": "^7.0.2",
+    "@types/mocha": "^8.0.0",
     "@types/node": "^14.0.1",
     "chai": "^4.2.0",
     "globby": "^11.0.0",
