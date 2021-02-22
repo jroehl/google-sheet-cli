@@ -12,7 +12,7 @@
     "@oclif/plugin-help": "^3.0.0",
     "cli-ux": "^5.4.5",
     "googleapis": "^67.0.0",
-    "husky": "^4.2.5",
+    "husky": "^5.1.0",
     "lodash.get": "^4.4.2",
     "semantic-release": "^17.0.6",
     "tslib": "^2.0.0"
