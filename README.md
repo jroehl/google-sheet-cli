@@ -25,7 +25,7 @@ $ npm install -g google-sheet-cli
 $ google-sheet COMMAND
 running command...
 $ google-sheet (-v|--version|version)
-google-sheet-cli/0.0.0 darwin-x64 node-v10.20.1
+google-sheet-cli/0.0.0 darwin-x64 node-v14.15.5
 $ google-sheet --help [COMMAND]
 USAGE
   $ google-sheet COMMAND
