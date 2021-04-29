@@ -1,0 +1,25 @@
+version: 2
+updates:
+- package-ecosystem: npm
+  directory: "/"
+  schedule:
+    interval: weekly
+    time: "04:00"
+  open-pull-requests-limit: 10
+  reviewers:
+  - jroehl
+  ignore:
+  - dependency-name: chai
+    versions:
+    - 4.3.3
+  - dependency-name: mocha
+    versions:
+    - 8.3.1
+  - dependency-name: husky
+    versions:
+    - 5.0.9
+    - 5.1.0
+    - 5.1.2
+  - dependency-name: typescript
+    versions:
+    - 4.2.2
