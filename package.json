@@ -11,7 +11,7 @@
     "@oclif/config": "^1.15.1",
     "@oclif/plugin-help": "^3.0.0",
     "cli-ux": "^5.4.5",
-    "googleapis": "^74.2.0",
+    "googleapis": "^75.0.0",
     "husky": "^6.0.0",
     "lodash.get": "^4.4.2",
     "semantic-release": "^17.0.6",
