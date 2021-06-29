@@ -75,7 +75,8 @@
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme --multi",
     "test": "nyc mocha \"test/**/*.test.ts\"",
     "semantic-release": "semantic-release",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "cleanup": "bin/clear-testsheet.sh"
   },
   "types": "lib/index.d.ts"
 }
