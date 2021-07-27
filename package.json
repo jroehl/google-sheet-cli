@@ -25,7 +25,6 @@
     "@types/mocha": "^8.0.0",
     "@types/node": "^16.0.0",
     "chai": "^4.2.0",
-    "globby": "^12.0.0",
     "mocha": "^9.0.1",
     "nyc": "^15.0.1",
     "source-map-support": "^0.5.19",
