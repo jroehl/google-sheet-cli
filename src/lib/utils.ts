@@ -46,7 +46,7 @@ export const colToA = (col: number): string => {
  * @returns {number}
  */
 export const aToCol = (label: string): number => {
-  const match = label.match(/[A-Z]+/);
+  const match = label.match(/[A-Z0-9]+/);
   if (!match || match[0].length !== label.length) throw `Label has to be uppercase alphabet letter but is "${label}"`;
 
   const col = label
