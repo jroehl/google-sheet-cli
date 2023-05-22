@@ -1,4 +1,5 @@
 import { Args, Command, Flags, ux } from '@oclif/core';
+import { ArgOutput, FlagInput, FlagOutput } from '@oclif/core/lib/interfaces/parser';
 import GoogleSheet, { GoogleSheetCli } from './google-sheet';
 
 export const spreadsheetId = Flags.string({
@@ -14,6 +15,7 @@ export const worksheetTitle = Flags.string({
   required: true,
   env: 'WORKSHEET_TITLE',
 });
+
 export const valueInputOption = Flags.string({
   char: 'v',
   description: 'The style of the input ("RAW" or "USER_ENTERED")',
@@ -31,17 +33,32 @@ export const data = Args.string({
   env: 'DATA',
 });
 
+interface CommonFlags {
+  rawOutput: boolean;
+  clientEmail: string | undefined;
+  privateKey: string | undefined;
+  help: void;
+}
+
 export default abstract class extends Command {
   private rawLogs: boolean = false;
   public gsheet!: GoogleSheet;
 
-  static flags = {
+  static flags: FlagInput<CommonFlags> = {
     help: Flags.help({ char: 'h' }),
     rawOutput: Flags.boolean({
       char: 'r',
       description: 'Get the raw output as a JSON string',
       default: false,
       required: false,
+    }),
+    clientEmail: Flags.string({
+      char: 'c',
+      env: 'GSHEET_CLIENT_EMAIL',
+    }),
+    privateKey: Flags.string({
+      char: 'p',
+      env: 'GSHEET_PRIVATE_KEY',
     }),
   };
 
@@ -67,18 +84,15 @@ export default abstract class extends Command {
 
   async init() {
     // do some initialization
-    const { flags } = await this.parse(<any>this.constructor);
-    this.rawLogs = flags && (flags as any).rawOutput;
-
-    const {
-      GSHEET_CLIENT_EMAIL = await ux.prompt('What is your client email?', { type: 'hide' }),
-      GSHEET_PRIVATE_KEY = await ux.prompt('What is your private key?', { type: 'hide' }),
-    } = process.env;
+    const { flags } = await this.parse<CommonFlags, FlagOutput, ArgOutput>(<any>this.constructor);
+    this.rawLogs = !!flags?.rawOutput;
+    const clientEmail = flags?.clientEmail ?? (await ux.prompt('What is your client email?', { type: 'hide' }));
+    const privateKey = flags?.privateKey ?? (await ux.prompt('What is your private key?', { type: 'hide' }));
 
     const gsheet = new GoogleSheet();
     await gsheet.authorize({
-      client_email: GSHEET_CLIENT_EMAIL,
-      private_key: GSHEET_PRIVATE_KEY,
+      client_email: clientEmail,
+      private_key: privateKey,
     });
 
     this.gsheet = gsheet;
