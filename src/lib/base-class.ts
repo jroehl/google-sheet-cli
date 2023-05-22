@@ -1,21 +1,20 @@
-import Command, { flags } from '@oclif/command';
-import cli from 'cli-ux';
+import { Args, Command, Flags, ux } from '@oclif/core';
 import GoogleSheet, { GoogleSheetCli } from './google-sheet';
 
-export const spreadsheetId = flags.string({
+export const spreadsheetId = Flags.string({
   char: 's',
   description: 'ID of the spreadsheet to use',
   required: true,
   env: 'SPREADSHEET_ID',
 });
 
-export const worksheetTitle = flags.string({
+export const worksheetTitle = Flags.string({
   char: 't',
   description: 'Title of the worksheet to use',
   required: true,
   env: 'WORKSHEET_TITLE',
 });
-export const valueInputOption = flags.string({
+export const valueInputOption = Flags.string({
   char: 'v',
   description: 'The style of the input ("RAW" or "USER_ENTERED")',
   required: false,
@@ -24,21 +23,21 @@ export const valueInputOption = flags.string({
   env: 'VALUE_INPUT_OPTION',
 });
 
-export const data = {
+export const data = Args.string({
   name: 'data',
   type: 'string',
   description: 'The data to be used as a JSON string - nested array [["1", "2", "3"]]',
   required: true,
   env: 'DATA',
-};
+});
 
 export default abstract class extends Command {
   private rawLogs: boolean = false;
   public gsheet!: GoogleSheet;
 
   static flags = {
-    help: flags.help({ char: 'h' }),
-    rawOutput: flags.boolean({
+    help: Flags.help({ char: 'h' }),
+    rawOutput: Flags.boolean({
       char: 'r',
       description: 'Get the raw output as a JSON string',
       default: false,
@@ -48,13 +47,13 @@ export default abstract class extends Command {
 
   async start(message: string) {
     if (!this.rawLogs) {
-      cli.action.start(message);
+      ux.action.start(message);
     }
   }
 
   async stop(message?: string) {
     if (!this.rawLogs) {
-      cli.action.stop(message);
+      ux.action.stop(message);
     }
   }
 
@@ -68,12 +67,12 @@ export default abstract class extends Command {
 
   async init() {
     // do some initialization
-    const { flags } = this.parse(<any>this.constructor);
+    const { flags } = await this.parse(<any>this.constructor);
     this.rawLogs = flags && (flags as any).rawOutput;
 
     const {
-      GSHEET_CLIENT_EMAIL = await cli.prompt('What is your client email?', { type: 'hide' }),
-      GSHEET_PRIVATE_KEY = await cli.prompt('What is your private key?', { type: 'hide' }),
+      GSHEET_CLIENT_EMAIL = await ux.prompt('What is your client email?', { type: 'hide' }),
+      GSHEET_PRIVATE_KEY = await ux.prompt('What is your private key?', { type: 'hide' }),
     } = process.env;
 
     const gsheet = new GoogleSheet();

@@ -1,4 +1,4 @@
-import Command, { worksheetTitle, spreadsheetId } from '../../lib/base-class';
+import Command, { spreadsheetId, worksheetTitle } from '../../lib/base-class';
 
 export default class Get extends Command {
   static description = 'Get info for a specific worksheet';
@@ -19,7 +19,7 @@ Fetched "<worksheetTitle>" (<id>)
   async run() {
     const {
       flags: { worksheetTitle = '', spreadsheetId },
-    } = this.parse(Get);
+    } = await this.parse(Get);
 
     this.start('Fetching worksheet');
     const worksheet = await this.gsheet.getWorksheet(worksheetTitle, spreadsheetId);

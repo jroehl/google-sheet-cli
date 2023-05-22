@@ -18,7 +18,7 @@ Fetched "<spreadsheetTitle>" (<id>) > https://docs.google.com/spreadsheets/d/<id
   async run() {
     const {
       flags: { spreadsheetId },
-    } = this.parse(Get);
+    } = await this.parse(Get);
 
     this.start('Fetching spreadsheet');
     const spreadsheet = await this.gsheet.getSpreadsheet(spreadsheetId);

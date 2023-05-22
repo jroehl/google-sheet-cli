@@ -1,6 +1,6 @@
 import { expect } from '@oclif/test';
-import GoogleSheet from '../src/lib/google-sheet';
 import { sheets_v4 } from 'googleapis';
+import GoogleSheet from '../src/lib/google-sheet';
 import { getID } from './commands/helper';
 
 const data = {
@@ -30,8 +30,8 @@ describe('google-sheet', () => {
   });
 
   it('[1] creates a worksheet', async () => {
-    const sheet: sheets_v4.Schema$Sheet = await gsheet.addWorksheet(worksheetTitle);
-    if (!sheet.properties) throw sheet;
+    const sheet = await gsheet.addWorksheet(worksheetTitle);
+    if (!sheet?.properties) throw sheet;
     expect(sheet.properties).to.haveOwnProperty('sheetId');
     expect(sheet.properties).to.haveOwnProperty('index');
     expect(sheet.properties).to.haveOwnProperty('gridProperties');

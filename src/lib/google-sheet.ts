@@ -1,6 +1,6 @@
 import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
-import { colToA, getRange, getLongestArray, parseRanges } from './utils';
+import { colToA, getLongestArray, getRange, parseRanges } from './utils';
 
 export namespace GoogleSheetCli {
   export interface Credentials {
@@ -22,7 +22,7 @@ export namespace GoogleSheetCli {
     maxRow?: number;
     range?: string;
     valueInputOption?: ValueInputOption;
-    worksheetTitle?: string;
+    worksheetTitle?: string | null;
     hasHeaderRow?: boolean;
   }
 
@@ -34,7 +34,7 @@ export namespace GoogleSheetCli {
     rawData: RawData;
     formatted: FormattedData[];
     header: string[];
-    range: string;
+    range?: string | null;
   }
 }
 
@@ -55,7 +55,7 @@ export default class GoogleSheet {
    * @param {string} [worksheetTitle]
    * @memberof GoogleSheet
    */
-  constructor(private spreadsheetId?: string, private worksheetTitle?: string) {}
+  constructor(private spreadsheetId?: string, private worksheetTitle?: string | null) {}
 
   /**
    * Authorize with credentials
@@ -140,7 +140,7 @@ export default class GoogleSheet {
     let header: string[] = [];
     if (sanitizedOptions.hasHeaderRow) {
       if (!sanitizedOptions.minRow || sanitizedOptions.minRow <= 1) {
-        [header, ...values] = values;
+        [header, ...values] = values || [];
       } else {
         const res = await this.sheets.spreadsheets.values.get({
           spreadsheetId: spreadsheetId || this.spreadsheetId,
@@ -172,7 +172,7 @@ export default class GoogleSheet {
     let formatted: GoogleSheetCli.FormattedData[] = [];
     let rawData: GoogleSheetCli.RawData = [];
     for (let r = 0; r < maxRow; r++) {
-      const row = values[r] || [];
+      const row = values?.[r] || [];
       const rawRow = [];
       let set = {};
       for (let c = 0; c < maxCol; c++) {
@@ -236,7 +236,7 @@ export default class GoogleSheet {
    * @returns {Promise<sheets_v4.Schema$Sheet>}
    * @memberof GoogleSheet
    */
-  async addWorksheet(title: string, spreadsheetId?: string): Promise<sheets_v4.Schema$Sheet> {
+  async addWorksheet(title: string, spreadsheetId?: string): Promise<sheets_v4.Schema$Sheet | undefined> {
     const response = await this.sheets.spreadsheets.batchUpdate({
       spreadsheetId: spreadsheetId || this.spreadsheetId,
       requestBody: {

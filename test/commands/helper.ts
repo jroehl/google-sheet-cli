@@ -57,7 +57,7 @@ export const removeTestWorksheets = async () => {
         return sheet;
       } catch (error) {
         // fail soft
-        return error.message || error;
+        return (error as Error).message || error;
       }
     })
   );

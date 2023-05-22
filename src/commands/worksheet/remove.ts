@@ -1,4 +1,4 @@
-import Command, { worksheetTitle, spreadsheetId } from '../../lib/base-class';
+import Command, { spreadsheetId, worksheetTitle } from '../../lib/base-class';
 
 export default class Remove extends Command {
   static description = 'Remove a worksheet with the specified title from the spreadsheet';
@@ -19,7 +19,7 @@ Worksheet "<worksheetTitle>" successfully removed
   async run() {
     const {
       flags: { worksheetTitle = '', spreadsheetId },
-    } = this.parse(Remove);
+    } = await this.parse(Remove);
 
     this.start('Removing worksheet');
     await this.gsheet.removeWorksheet(worksheetTitle, spreadsheetId);
