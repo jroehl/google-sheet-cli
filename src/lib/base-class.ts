@@ -55,10 +55,12 @@ export default abstract class extends Command {
     clientEmail: Flags.string({
       char: 'c',
       env: 'GSHEET_CLIENT_EMAIL',
+      required: false,
     }),
     privateKey: Flags.string({
       char: 'p',
       env: 'GSHEET_PRIVATE_KEY',
+      required: false,
     }),
   };
 
