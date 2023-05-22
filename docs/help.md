@@ -1,23 +1,26 @@
 `google-sheet help`
 ===================
 
-display help for google-sheet
+Display help for google-sheet.
 
-* [`google-sheet help [COMMAND]`](#google-sheet-help-command)
+* [`google-sheet help [COMMANDS]`](#google-sheet-help-commands)
 
-## `google-sheet help [COMMAND]`
+## `google-sheet help [COMMANDS]`
 
-display help for google-sheet
+Display help for google-sheet.
 
 ```
 USAGE
-  $ google-sheet help [COMMAND]
+  $ google-sheet help [COMMANDS] [-n]
 
 ARGUMENTS
-  COMMAND  command to show help for
+  COMMANDS  Command to show help for.
 
-OPTIONS
-  --all  see all commands in CLI
+FLAGS
+  -n, --nested-commands  Include all nested commands in the output.
+
+DESCRIPTION
+  Display help for google-sheet.
 ```
 
-_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.2/src/commands/help.ts)_
+_See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v5.2.9/src/commands/help.ts)_

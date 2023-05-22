@@ -27,8 +27,8 @@ A simple helper cli to interact with google sheets.
 $ npm install -g google-sheet-cli
 $ google-sheet COMMAND
 running command...
-$ google-sheet (-v|--version|version)
-google-sheet-cli/0.0.0 darwin-x64 node-v14.15.5
+$ google-sheet (--version)
+google-sheet-cli/0.0.0 darwin-arm64 node-v18.16.0
 $ google-sheet --help [COMMAND]
 USAGE
   $ google-sheet COMMAND
@@ -44,10 +44,7 @@ _See code: [src/lib/google-sheet.ts](https://github.com/jroehl/google-sheet-cli/
 <!-- commands -->
 # Command Topics
 
-* [`google-sheet data`](docs/data.md) - Manage data in worksheet
-* [`google-sheet help`](docs/help.md) - display help for google-sheet
-* [`google-sheet spreadsheet`](docs/spreadsheet.md) - Manage spreadsheets
-* [`google-sheet worksheet`](docs/worksheet.md) - Manage worksheets
+* [`google-sheet help`](docs/help.md) - Display help for google-sheet.
 
 <!-- commandsstop -->
 
