@@ -1,5 +1,5 @@
-import { flags } from '@oclif/command';
-import Command, { worksheetTitle, spreadsheetId, data, valueInputOption } from '../../lib/base-class';
+import { Flags } from '@oclif/core';
+import Command, { data, spreadsheetId, valueInputOption, worksheetTitle } from '../../lib/base-class';
 
 export default class UpdateData extends Command {
   static description = 'Append cells with the specified data after the last row in starting col';
@@ -16,16 +16,16 @@ Data successfully appended to "<worksheetTitle>"
     worksheetTitle,
     spreadsheetId,
     valueInputOption,
-    minCol: flags.integer({ description: 'The optional starting col of the operation', default: 1, required: false }),
+    minCol: Flags.integer({ description: 'The optional starting col of the operation', default: 1, required: false }),
   };
 
-  static args = [data];
+  static args = { data };
 
   async run() {
     const {
       args: { data },
       flags: { minCol, worksheetTitle = '', spreadsheetId, valueInputOption },
-    } = this.parse(UpdateData);
+    } = await this.parse(UpdateData);
 
     try {
       this.start('Appending data');
@@ -44,7 +44,7 @@ Data successfully appended to "<worksheetTitle>"
       if (error instanceof SyntaxError) {
         throw `"data" input has to be valid JSON (${error.message || error})`;
       }
-      throw error.message || error;
+      throw (error as Error).message || error;
     }
   }
 }

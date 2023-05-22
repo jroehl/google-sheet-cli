@@ -1,4 +1,4 @@
-import { flags } from '@oclif/command';
+import { Flags } from '@oclif/core';
 import Command from '../../lib/base-class';
 
 export default class Add extends Command {
@@ -13,7 +13,7 @@ Spreadsheet "<spreadsheetTitle>" (<id>) successfully created > https://docs.goog
 
   static flags = {
     ...Command.flags,
-    spreadsheetTitle: flags.string({
+    spreadsheetTitle: Flags.string({
       description: 'Title of the spreadsheet',
       required: true,
     }),
@@ -22,7 +22,7 @@ Spreadsheet "<spreadsheetTitle>" (<id>) successfully created > https://docs.goog
   async run() {
     const {
       flags: { spreadsheetTitle = '' },
-    } = this.parse(Add);
+    } = await this.parse(Add);
 
     this.start('Adding spreadsheet');
     const spreadsheet = await this.gsheet.addSpreadsheet(spreadsheetTitle);
