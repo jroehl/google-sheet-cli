@@ -3,8 +3,7 @@
 
 Display help for google-sheet.
 
-- [`google-sheet help`](#google-sheet-help)
-  - [`google-sheet help [COMMANDS]`](#google-sheet-help-commands)
+* [`google-sheet help [COMMANDS]`](#google-sheet-help-commands)
 
 ## `google-sheet help [COMMANDS]`
 

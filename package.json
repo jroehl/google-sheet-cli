@@ -7,8 +7,6 @@
   },
   "bugs": "https://github.com/jroehl/google-sheet-cli/issues",
   "dependencies": {
-    "@oclif/command": "^1.8.26",
-    "@oclif/config": "^1.18.9",
     "@oclif/core": "^2.8.5",
     "@oclif/plugin-help": "^5.2.9",
     "googleapis": "^118.0.0",
@@ -18,7 +16,6 @@
     "tslib": "^2.5.2"
   },
   "devDependencies": {
-    "@oclif/dev-cli": "^1.26.10",
     "@oclif/test": "^2.3.21",
     "@types/chai": "^4.3.5",
     "@types/lodash.get": "^4.4.7",
@@ -70,7 +67,7 @@
   "repository": "jroehl/google-sheet-cli",
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
-    "version": "oclif-dev readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
+    "version": "npx oclif readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme --multi",
     "test": "nyc mocha \"test/**/*.test.ts\"",
     "semantic-release": "semantic-release",
