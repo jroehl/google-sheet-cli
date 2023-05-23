@@ -12,16 +12,24 @@ Add a worksheet with the specified title to the spreadsheet
 
 ```
 USAGE
-  $ google-sheet spreadsheet:add
+  $ google-sheet spreadsheet:add --spreadsheetTitle <value> [-h] [-r] [-c <value>] [-p <value>]
 
-OPTIONS
-  -h, --help                           show CLI help
-  -r, --rawOutput                      Get the raw output as a JSON string
-  --spreadsheetTitle=spreadsheetTitle  (required) Title of the spreadsheet
+FLAGS
+  -h, --help                  Show CLI help.
+  -r, --rawOutput             Get the raw output as a JSON string
+  --spreadsheetTitle=<value>  (required) Title of the spreadsheet
 
-EXAMPLE
+AUTHENTICATION FLAGS
+  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
+                             not provided.
+  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
+                             provided.
+
+DESCRIPTION
+  Add a worksheet with the specified title to the spreadsheet
+
+EXAMPLES
   $ gsheet worksheet:add --spreadsheetTitle=<spreadsheetTitle>
-
   Spreadsheet "<spreadsheetTitle>" (<id>) successfully created > https://docs.google.com/spreadsheets/d/<id>/edit
 ```
 
@@ -33,16 +41,24 @@ Get info for a specific spreadsheet
 
 ```
 USAGE
-  $ google-sheet spreadsheet:get
+  $ google-sheet spreadsheet:get -s <value> [-h] [-r] [-c <value>] [-p <value>]
 
-OPTIONS
-  -h, --help                         show CLI help
-  -r, --rawOutput                    Get the raw output as a JSON string
-  -s, --spreadsheetId=spreadsheetId  (required) ID of the spreadsheet to use
+FLAGS
+  -h, --help                   Show CLI help.
+  -r, --rawOutput              Get the raw output as a JSON string
+  -s, --spreadsheetId=<value>  (required) ID of the spreadsheet to use
 
-EXAMPLE
+AUTHENTICATION FLAGS
+  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
+                             not provided.
+  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
+                             provided.
+
+DESCRIPTION
+  Get info for a specific spreadsheet
+
+EXAMPLES
   $ gsheet spreadsheet:get --spreadsheetId=<spreadsheetId>
-
   Fetched "<spreadsheetTitle>" (<id>) > https://docs.google.com/spreadsheets/d/<id>/edit
 ```
 

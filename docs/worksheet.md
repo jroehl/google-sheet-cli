@@ -13,17 +13,25 @@ Add a worksheet with the specified title to the spreadsheet
 
 ```
 USAGE
-  $ google-sheet worksheet:add
+  $ google-sheet worksheet:add -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
 
-OPTIONS
-  -h, --help                           show CLI help
-  -r, --rawOutput                      Get the raw output as a JSON string
-  -s, --spreadsheetId=spreadsheetId    (required) ID of the spreadsheet to use
-  -t, --worksheetTitle=worksheetTitle  (required) Title of the worksheet to use
+FLAGS
+  -h, --help                    Show CLI help.
+  -r, --rawOutput               Get the raw output as a JSON string
+  -s, --spreadsheetId=<value>   (required) ID of the spreadsheet to use
+  -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
 
-EXAMPLE
+AUTHENTICATION FLAGS
+  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
+                             not provided.
+  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
+                             provided.
+
+DESCRIPTION
+  Add a worksheet with the specified title to the spreadsheet
+
+EXAMPLES
   $ gsheet worksheet:add --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle>
-
   Worksheet "<worksheetTitle>" (<id>) successfully created
 ```
 
@@ -35,17 +43,25 @@ Get info for a specific worksheet
 
 ```
 USAGE
-  $ google-sheet worksheet:get
+  $ google-sheet worksheet:get -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
 
-OPTIONS
-  -h, --help                           show CLI help
-  -r, --rawOutput                      Get the raw output as a JSON string
-  -s, --spreadsheetId=spreadsheetId    (required) ID of the spreadsheet to use
-  -t, --worksheetTitle=worksheetTitle  (required) Title of the worksheet to use
+FLAGS
+  -h, --help                    Show CLI help.
+  -r, --rawOutput               Get the raw output as a JSON string
+  -s, --spreadsheetId=<value>   (required) ID of the spreadsheet to use
+  -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
 
-EXAMPLE
+AUTHENTICATION FLAGS
+  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
+                             not provided.
+  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
+                             provided.
+
+DESCRIPTION
+  Get info for a specific worksheet
+
+EXAMPLES
   $ gsheet worksheet:get --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle>
-
   Fetched "<worksheetTitle>" (<id>)
 ```
 
@@ -57,17 +73,25 @@ Remove a worksheet with the specified title from the spreadsheet
 
 ```
 USAGE
-  $ google-sheet worksheet:remove
+  $ google-sheet worksheet:remove -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
 
-OPTIONS
-  -h, --help                           show CLI help
-  -r, --rawOutput                      Get the raw output as a JSON string
-  -s, --spreadsheetId=spreadsheetId    (required) ID of the spreadsheet to use
-  -t, --worksheetTitle=worksheetTitle  (required) Title of the worksheet to use
+FLAGS
+  -h, --help                    Show CLI help.
+  -r, --rawOutput               Get the raw output as a JSON string
+  -s, --spreadsheetId=<value>   (required) ID of the spreadsheet to use
+  -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
 
-EXAMPLE
+AUTHENTICATION FLAGS
+  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
+                             not provided.
+  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
+                             provided.
+
+DESCRIPTION
+  Remove a worksheet with the specified title from the spreadsheet
+
+EXAMPLES
   $ gsheet worksheet:remove --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle>
-
   Worksheet "<worksheetTitle>" successfully removed
 ```
 

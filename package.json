@@ -67,9 +67,10 @@
   },
   "repository": "jroehl/google-sheet-cli",
   "scripts": {
+    "build": "rm -rf dist && tsc -b",
     "postpack": "rm -f oclif.manifest.json",
     "version": "oclif readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
-    "prepack": "rm -rf lib && tsc -b && oclif manifest && oclif readme --multi",
+    "prepack": "npm run build && oclif manifest && oclif readme --multi",
     "test": "nyc mocha \"test/**/*.test.ts\"",
     "semantic-release": "semantic-release",
     "prepare": "husky install",

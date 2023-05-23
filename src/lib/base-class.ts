@@ -53,13 +53,17 @@ export default abstract class extends Command {
       required: false,
     }),
     clientEmail: Flags.string({
+      helpGroup: 'Authentication',
       char: 'c',
       env: 'GSHEET_CLIENT_EMAIL',
+      description: 'The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if not provided.',
       required: false,
     }),
     privateKey: Flags.string({
+      helpGroup: 'Authentication',
       char: 'p',
       env: 'GSHEET_PRIVATE_KEY',
+      description: 'The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not provided.',
       required: false,
     }),
   };
