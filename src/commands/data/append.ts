@@ -1,7 +1,7 @@
 import { Flags } from '@oclif/core';
 import Command, { data, spreadsheetId, valueInputOption, worksheetTitle } from '../../lib/base-class';
 
-export default class UpdateData extends Command {
+export default class AppendData extends Command {
   static description = 'Append cells with the specified data after the last row in starting col';
 
   static examples = [
@@ -25,7 +25,7 @@ Data successfully appended to "<worksheetTitle>"
     const {
       args: { data },
       flags: { minCol, worksheetTitle = '', spreadsheetId, valueInputOption },
-    } = await this.parse(UpdateData);
+    } = await this.parse(AppendData);
 
     try {
       this.start('Appending data');

@@ -66,15 +66,15 @@ export const aToCol = (label: string): number => {
  * @returns {{ col: number; row: number }}
  */
 const parseA1Notation = (a1Notation: string = ''): { col: number; row: number } => {
-  return a1Notation.split('').reduce(
-    (red, part: string) => {
-      if (part && !parseInt(part)) {
-        return { ...red, col: aToCol(part) };
-      }
-      return { ...red, row: parseInt(part) };
-    },
-    { col: 0, row: 0 }
-  );
+  const res = { col: 0, row: 0 };
+  if (!a1Notation) return res;
+  const rowChar = a1Notation.match(/\d+/g)?.[0] ?? '0';
+
+  const colChar = a1Notation.match(/[a-zA-Z]+/g)?.[0];
+  return {
+    col: colChar === undefined ? 0 : aToCol(colChar),
+    row: parseInt(rowChar),
+  };
 };
 
 /**
@@ -83,35 +83,38 @@ const parseA1Notation = (a1Notation: string = ''): { col: number; row: number } 
  * @param {GoogleSheetCli.QueryOptions} [options={}]
  * @returns {GoogleSheetCli.QueryOptions[]}
  */
-export const parseRanges = (options: GoogleSheetCli.QueryOptions = {}): GoogleSheetCli.QueryOptions[] => {
-  if (!options.range) return [options];
-  const [title, a1Notations = ''] = options.range.split('!');
+export const parseRange = (range: string): Pick<GoogleSheetCli.QueryOptions, 'maxCol' | 'minCol' | 'maxRow' | 'minRow' | 'worksheetTitle'> => {
+  let worksheetTitle: string | undefined | null;
+  let a1Notation: string;
 
-  let worksheetTitle = title;
-  const sanitized = title.match(/^['"](.*)['"]$/);
-  if (sanitized) {
-    worksheetTitle = sanitized[1];
+  const split = range.match(/(["']?.*["']?)\!(.*)/);
+  if (split) {
+    [, worksheetTitle, a1Notation] = split;
+  } else {
+    a1Notation = range;
   }
 
-  return a1Notations
-    .replace(/[,;]/g, ',')
-    .split(',')
-    .map((a1Notation) => {
-      const [from, to] = a1Notation.split(':');
-      const { col: minCol, row: minRow } = parseA1Notation(from);
-      const { col: maxCol, row: maxRow } = parseA1Notation(to);
-      if (!minCol && !minRow && !maxCol && !maxRow) {
-        return { ...options, worksheetTitle };
-      }
-      return {
-        ...options,
-        maxCol: maxCol || minCol,
-        minCol,
-        maxRow: maxRow || minRow,
-        minRow,
-        worksheetTitle,
-      };
-    });
+  worksheetTitle = worksheetTitle?.match(/^['"](.*)['"]$/)?.[1];
+
+  const [from, to] = a1Notation.split(':');
+
+  try {
+    const { col: minCol, row: minRow } = parseA1Notation(from);
+    const { col: maxCol, row: maxRow } = parseA1Notation(to);
+
+    if (!minCol && !minRow && !maxCol && !maxRow) {
+      return { worksheetTitle };
+    }
+    return {
+      maxCol: maxCol || minCol,
+      minCol,
+      maxRow: maxRow || minRow,
+      minRow,
+      worksheetTitle,
+    };
+  } catch (error) {
+    throw new Error(`Invalid range "${range}"`);
+  }
 };
 
 /**

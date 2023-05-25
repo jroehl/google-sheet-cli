@@ -1,7 +1,7 @@
 import { Flags, ux } from '@oclif/core';
 import Command, { spreadsheetId, worksheetTitle } from '../../lib/base-class';
 
-export default class UpdateData extends Command {
+export default class GetData extends Command {
   static description = 'Returns cell data';
 
   static examples = [
@@ -30,7 +30,7 @@ A3   B3   C3
   async run() {
     const {
       flags: { spreadsheetId, rawOutput, minRow, maxRow, minCol, maxCol, range, hasHeaderRow, worksheetTitle, ...tableOptions },
-    } = await this.parse(UpdateData);
+    } = await this.parse(GetData);
 
     this.start('Fetching data');
     const res = await this.gsheet.getData({ minRow, maxRow, minCol, maxCol, range, hasHeaderRow, worksheetTitle }, spreadsheetId);

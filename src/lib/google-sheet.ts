@@ -1,6 +1,6 @@
 import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
-import { colToA, getLongestArray, getRange, parseRanges } from './utils';
+import { colToA, getLongestArray, getRange, parseRange } from './utils';
 
 export namespace GoogleSheetCli {
   export interface Credentials {
@@ -82,6 +82,8 @@ export default class GoogleSheet {
     const { data: sheet } = await this.sheets.spreadsheets.get({
       spreadsheetId: spreadsheetId || this.spreadsheetId,
     });
+
+    this.sheets.spreadsheets.sheets;
     if (!sheet) throw `Spreadsheet "${spreadsheetId || this.spreadsheetId}" not found`;
     return sheet;
   }
@@ -114,19 +116,36 @@ export default class GoogleSheet {
    */
   async getData(options: GoogleSheetCli.QueryOptions = {}, spreadsheetId?: string): Promise<GoogleSheetCli.SheetData> {
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
-    const parsedOptions = parseRanges(options)[0];
-    const { worksheetTitle: wsTitle } = parsedOptions;
-    if (!wsTitle) {
+    if (options.range) {
+      const parsedOptions = parseRange(options.range);
+      if (parsedOptions.worksheetTitle) {
+        options.worksheetTitle = parsedOptions.worksheetTitle;
+      }
+      if (parsedOptions.minCol) {
+        options.minCol = parsedOptions.minCol;
+      }
+      if (parsedOptions.maxCol) {
+        options.maxCol = parsedOptions.maxCol;
+      }
+      if (parsedOptions.minRow) {
+        options.minRow = parsedOptions.minRow;
+      }
+      if (parsedOptions.maxRow) {
+        options.maxRow = parsedOptions.maxRow;
+      }
+    }
+
+    if (!options.worksheetTitle) {
       throw 'Option property "worksheetTitle" is required';
     }
 
-    const sheet = await this.getWorksheet(wsTitle, spreadsheetId);
+    const sheet = await this.getWorksheet(options.worksheetTitle, spreadsheetId);
     const { rowCount = 0, columnCount = 0 } = sheet?.properties?.gridProperties || {};
 
     const sanitizedOptions: GoogleSheetCli.QueryOptions = {
-      ...parsedOptions,
-      maxCol: parsedOptions.maxCol || columnCount || 0,
-      maxRow: parsedOptions.maxRow || rowCount || 0,
+      ...options,
+      maxCol: options.maxCol || columnCount || 0,
+      maxRow: options.maxRow || rowCount || 0,
     };
 
     const res = await this.sheets.spreadsheets.values.get({
@@ -146,7 +165,7 @@ export default class GoogleSheet {
           spreadsheetId: spreadsheetId || this.spreadsheetId,
           range: getRange({
             ...sanitizedOptions,
-            worksheetTitle: wsTitle,
+            worksheetTitle: options.worksheetTitle,
             minRow: 1,
             maxRow: 1,
             range: undefined,
@@ -216,7 +235,6 @@ export default class GoogleSheet {
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
     if (!options.worksheetTitle) throw 'Specify worksheetTitle';
     if (!Array.isArray(data) || !data.every(Array.isArray)) throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
-
     const range = getRange(options);
     await this.sheets.spreadsheets.values.update({
       spreadsheetId: spreadsheetId || this.spreadsheetId,

@@ -1,5 +1,5 @@
 import { expect } from '@oclif/test';
-import { getLongestArray, colToA, aToCol, getRange, parseRanges } from '../src/lib/utils';
+import { aToCol, colToA, getLongestArray, getRange, parseRange } from '../src/lib/utils';
 
 describe('lib', () => {
   it('getLongestArray', async () => {
@@ -42,19 +42,28 @@ describe('lib', () => {
   });
 
   describe('parseRanges', () => {
-    it('minCol & minRow & maxCol & maxRow', async () => {
-      const res = parseRanges({ range: '"foo"!B1:C2' });
-      expect(res).to.eql([{ maxCol: 3, maxRow: 2, minCol: 2, minRow: 1, range: '"foo"!B1:C2', worksheetTitle: 'foo' }]);
+    it('minCol & minRow & maxCol & maxRow & worksheettitle', async () => {
+      const res = parseRange('"foo"!B1:C2');
+      expect(res).to.eql({ maxCol: 3, maxRow: 2, minCol: 2, minRow: 1, worksheetTitle: 'foo' });
+    });
+
+    it('minCol & maxCol & worksheettitle', async () => {
+      const res = parseRange('"foo"!B1');
+      expect(res).to.eql({ maxCol: 2, maxRow: 1, minCol: 2, minRow: 1, worksheetTitle: 'foo' });
     });
 
     it('minCol & maxCol', async () => {
-      const res = parseRanges({ range: '"foo"!B1' });
-      expect(res).to.eql([{ maxCol: 2, maxRow: 1, minCol: 2, minRow: 1, range: '"foo"!B1', worksheetTitle: 'foo' }]);
+      const res = parseRange('B1');
+      expect(res).to.eql({ maxCol: 2, maxRow: 1, minCol: 2, minRow: 1, worksheetTitle: undefined });
     });
 
-    it('no minCol & maxCol', async () => {
-      const res = parseRanges({ range: '"foo"' });
-      expect(res).to.eql([{ range: '"foo"', worksheetTitle: 'foo' }]);
+    it('minCol & minRow & maxCol & maxRow', async () => {
+      const res = parseRange('B1:C2');
+      expect(res).to.eql({ maxCol: 3, maxRow: 2, minCol: 2, minRow: 1, worksheetTitle: undefined });
+    });
+
+    it('invalid range', async () => {
+      expect(() => parseRange('"foo"')).to.throw('Invalid range ""foo""');
     });
   });
 });
