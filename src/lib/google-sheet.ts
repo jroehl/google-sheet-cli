@@ -300,6 +300,36 @@ export default class GoogleSheet {
   }
 
   /**
+   * Rename a worksheet by title
+   *
+   * @param {string} title
+   * @param {string} newTitle
+   * @param {string} [spreadsheetId]
+   * @returns {Promise<void>}
+   * @memberof GoogleSheet
+   */
+  async renameWorksheet(title: string, newTitle: string, spreadsheetId?: string): Promise<void> {
+    const worksheet = await this.getWorksheet(title, spreadsheetId);
+    await this.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId || this.spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: {
+                sheetId: worksheet.properties?.sheetId || -1,
+                title: newTitle,
+              },
+              fields: 'title',
+            },
+          },
+        ],
+      },
+    });
+    this.worksheetTitle = newTitle;
+  }
+
+  /**
    * Add a spreadsheet with title
    *
    * @param {string} title

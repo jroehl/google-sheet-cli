@@ -1,10 +1,10 @@
 import { expect } from '@oclif/test';
-import { testRun, DATA_GET as worksheetTitle, RAW_DATA } from '../helper';
+import { RAW_DATA, testRun, DATA_GET as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:get';
 
 describe(baseCommand, () => {
-  testRun([baseCommand], worksheetTitle, (stdout: string) => {
+  testRun([baseCommand], { worksheetTitle }, (stdout: string) => {
     expect(stdout).to.contain('(a)');
     expect(stdout).to.contain('(b)');
     expect(stdout).to.contain('(c)');
@@ -13,7 +13,7 @@ describe(baseCommand, () => {
     expect(stdout).to.contain('C3');
   });
 
-  testRun([baseCommand, '--rawOutput'], worksheetTitle, (parsed: {}) => {
+  testRun([baseCommand, '--rawOutput'], { worksheetTitle }, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
       rawData: RAW_DATA,
@@ -59,7 +59,7 @@ describe(baseCommand, () => {
     });
   });
 
-  testRun([baseCommand, '--rawOutput', '--hasHeaderRow'], worksheetTitle, (parsed: {}) => {
+  testRun([baseCommand, '--rawOutput', '--hasHeaderRow'], { worksheetTitle }, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
       rawData: [
@@ -107,7 +107,7 @@ describe(baseCommand, () => {
     });
   });
 
-  testRun([baseCommand, '--rawOutput', '--hasHeaderRow', '--minCol=2', '--minRow=2', '--maxCol=2', '--maxRow=2'], worksheetTitle, (parsed: {}) => {
+  testRun([baseCommand, '--rawOutput', '--hasHeaderRow', '--minCol=2', '--minRow=2', '--maxCol=2', '--maxRow=2'], { worksheetTitle }, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
       rawData: [['B2']],
@@ -121,7 +121,7 @@ describe(baseCommand, () => {
     });
   });
 
-  testRun([baseCommand, '--rawOutput', '--hasHeaderRow', `--range='${worksheetTitle}'!C3`], worksheetTitle, (parsed: {}) => {
+  testRun([baseCommand, '--rawOutput', '--hasHeaderRow', `--range='${worksheetTitle}'!C3`], { worksheetTitle }, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
       rawData: [['C3']],
@@ -135,7 +135,7 @@ describe(baseCommand, () => {
     });
   });
 
-  testRun([baseCommand, '--rawOutput', '--hasHeaderRow', `--range='${worksheetTitle}'!A2`], worksheetTitle, (parsed: {}) => {
+  testRun([baseCommand, '--rawOutput', '--hasHeaderRow', `--range='${worksheetTitle}'!A2`], { worksheetTitle }, (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:get',
       rawData: [],
