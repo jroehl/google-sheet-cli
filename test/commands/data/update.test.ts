@@ -7,10 +7,10 @@ const DATA = [['1', '2'], ['foo']];
 const DATA_STRING = JSON.stringify(DATA);
 
 describe(baseCommand, () => {
-  testRun([baseCommand, DATA_STRING], worksheetTitle, async (stdout: string) => {
+  testRun([baseCommand, DATA_STRING], { worksheetTitle }, async (stdout: string) => {
     expect(stdout).to.contain(`Data successfully updated in "${worksheetTitle}"`);
   });
-  testRun([baseCommand, DATA_STRING, '--rawOutput'], worksheetTitle, async (parsed: {}) => {
+  testRun([baseCommand, DATA_STRING, '--rawOutput'], { worksheetTitle }, async (parsed: {}) => {
     expect(parsed).to.eql({
       operation: 'data:update',
       worksheetTitle,

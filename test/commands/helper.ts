@@ -14,6 +14,8 @@ export const DATA_GET = getID('data_get_');
 export const WORKSHEET_GET = getID('worksheet_get_');
 export const WORKSHEET_ADD = getID('worksheet_add_');
 export const WORKSHEET_REMOVE = getID('worksheet_remove_');
+export const WORKSHEET_RENAME = getID('worksheet_rename_');
+export const WORKSHEET_RENAMED = getID('worksheet_rename_');
 
 const authorize = async (): Promise<GoogleSheet> => {
   const gsheet = new GoogleSheet();
@@ -21,8 +23,8 @@ const authorize = async (): Promise<GoogleSheet> => {
   return gsheet;
 };
 
-const worksheetsToAdd = [DATA_APPEND, DATA_UPDATE, WORKSHEET_GET, WORKSHEET_REMOVE];
-const worksheetsToRemove = [DATA_APPEND, DATA_UPDATE, WORKSHEET_GET, WORKSHEET_ADD, DATA_GET];
+const worksheetsToAdd = [DATA_APPEND, DATA_UPDATE, WORKSHEET_GET, WORKSHEET_REMOVE, WORKSHEET_RENAME];
+const worksheetsToRemove = [DATA_APPEND, DATA_UPDATE, WORKSHEET_GET, WORKSHEET_ADD, WORKSHEET_RENAMED, DATA_GET];
 
 export const RAW_DATA = [
   ['A1', 'B1', 'C1'],
@@ -74,17 +76,32 @@ export const addTestData = async () => {
   console.log('');
 };
 
-export const getCmd = (parts: string[], worksheetTitle?: string): string[] => {
+interface Args {
+  [key: string]: string | undefined;
+  spreadsheetId?: string;
+  worksheetTitle?: string;
+}
+
+export const getCmd = (parts: string[], args: Args = {}): string[] => {
   const [base, ...flags] = parts;
-  return [base, `--spreadsheetId=${SPREADSHEET_ID}`, worksheetTitle ? `--worksheetTitle=${worksheetTitle}` : '', ...flags].filter(Boolean);
+  if (!args.spreadsheetId) {
+    args.spreadsheetId = SPREADSHEET_ID;
+  }
+  return [
+    base,
+    ...Object.entries(args || {}).reduce<string[]>((acc, [key, value]) => {
+      return value === undefined ? acc : [...acc, `--${key}=${value}`];
+    }, []),
+    ...flags,
+  ].filter(Boolean);
 };
 
 export const getRun = (parts: string[]): string => {
   return `runs "${parts.join(' ')}"`;
 };
 
-export const testRun = (cmd: string[], worksheetTitle?: string, cb: Function = () => {}) => {
-  const parsedCommand = getCmd(cmd, worksheetTitle);
+export const testRun = (cmd: string[], args?: Args, cb: Function = () => {}) => {
+  const parsedCommand = getCmd(cmd, args);
   const commandString = `runs "${parsedCommand.join(' ')}"`;
   test
     .stdout()
