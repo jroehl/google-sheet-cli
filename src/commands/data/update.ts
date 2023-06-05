@@ -5,7 +5,7 @@ export default class UpdateData extends Command {
   static description = 'Updates cells with the specified data';
 
   static examples = [
-    `$ gsheet data:update --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle> --data='[["1", "2", "3"]]'
+    `$ gsheet data:update --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle> '[["1", "2", "3"]]'
 
 Data successfully updated in "<worksheetTitle>"
 `,

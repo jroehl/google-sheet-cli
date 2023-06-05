@@ -12,6 +12,9 @@ permissions:
   issues: write
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
