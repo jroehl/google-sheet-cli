@@ -9,7 +9,7 @@
   "dependencies": {
     "@oclif/core": "^2.8.5",
     "@oclif/plugin-help": "^5.2.9",
-    "googleapis": "^118.0.0",
+    "googleapis": "^124.0.0",
     "husky": "^8.0.3",
     "lodash.get": "^4.4.2",
     "oclif": "^3.9.0",
