@@ -72,7 +72,7 @@
     "version": "oclif readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
     "prepack": "npm run build && oclif manifest && oclif readme --multi",
     "test": "nyc mocha \"test/**/*.test.ts\"",
-    "test:unit": "mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 test/credentials.test.ts test/lib.test.ts test/regression.test.ts test/grid-growth.test.ts",
+    "test:unit": "mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 --forbid-only --ignore test/google-sheet.test.ts \"test/*.test.ts\"",
     "semantic-release": "semantic-release",
     "prepare": "husky",
     "cleanup": "bin/clear-testsheet.sh"
