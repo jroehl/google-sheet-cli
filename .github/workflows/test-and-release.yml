@@ -63,8 +63,37 @@ jobs:
 
       # The published CLI loads its command tree from lib/, not from src/. This catches a broken
       # oclif command path or manifest, which nothing running under ts-node can see.
+      #
+      # It used to cover the success path only, and that is how a regression where every error
+      # message was swallowed - right exit code, right thrown object, nothing printed - reached a
+      # final review. So it now drives a failing command as well and asserts on what the built
+      # binary actually prints. `test/commands/output.test.ts`, which runs in the unit step above,
+      # covers the same ground from src/; this is the one gate that sees the shipped build.
+      #
+      # No credentials: `authorize` only constructs a JWT client, the token is fetched lazily on
+      # the first API call, and this command fails before any request is made. The key is
+      # generated here and never leaves the runner, so the step runs on a fork pull request too.
       - name: cli smoke test
-        run: ./bin/run.js --help
+        run: |
+          set -euo pipefail
+
+          ./bin/run.js --help
+
+          GSHEET_CLIENT_EMAIL=smoke@example.iam.gserviceaccount.com
+          GSHEET_PRIVATE_KEY="$(node -e 'const {generateKeyPairSync} = require("crypto"); process.stdout.write(generateKeyPairSync("rsa", {modulusLength: 2048, privateKeyEncoding: {format: "pem", type: "pkcs8"}, publicKeyEncoding: {format: "pem", type: "spki"}}).privateKey)')"
+          export GSHEET_CLIENT_EMAIL GSHEET_PRIVATE_KEY
+
+          if output="$(./bin/run.js data:update not-json --spreadsheetId=smoke --worksheetTitle=smoke 2>&1)"; then
+            echo "::error::a failing command exited 0"
+            printf '%s\n' "$output"
+            exit 1
+          fi
+
+          printf '%s\n' "$output"
+          if ! printf '%s' "$output" | grep -q 'has to be valid JSON'; then
+            echo "::error::the cli exited non-zero but printed no error message"
+            exit 1
+          fi
 
       - name: Configure 1Password Service Account
         if: github.event_name == 'push'
