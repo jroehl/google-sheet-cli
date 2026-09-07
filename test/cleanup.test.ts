@@ -148,6 +148,11 @@ describe('cleanup classifier', () => {
     it('preserves an action worksheet whose epoch is in the future', () => {
       expectPreserved(`gsheet.action_e2e_${secAgo(-120)}_deadbee`, 'too-young');
     });
+
+    it('preserves the renamed action worksheet of a run still going', () => {
+      // the action's e2e renames its worksheet to <title>_new before removing it
+      expectPreserved(`gsheet.action_e2e_${secAgo(30)}_deadbee_new`, 'too-young');
+    });
   });
 
   describe('worksheets our runs left behind', () => {
@@ -168,6 +173,12 @@ describe('cleanup classifier', () => {
 
     it('deletes a six hour old action e2e worksheet', () => {
       expectDeleted(`gsheet.action_e2e_${secAgo(360)}_deadbee`);
+    });
+
+    it('deletes the renamed action worksheet a failed run left behind', () => {
+      // a run that dies between the rename and the remove leaks this shape, and before the
+      // suffix was matched it was preserved forever as "unowned"
+      expectDeleted(`gsheet.action_e2e_${secAgo(360)}_deadbee_new`);
     });
 
     it('deletes a worksheet one minute past the hour', () => {

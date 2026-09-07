@@ -31,8 +31,13 @@ const normalise = (title) => title.trim().toLowerCase();
  */
 const CLI_TITLE = /^(?:data_append_|data_update_|data_get_|worksheet_[a-z]+_|lib_|grid_|sentinel_)(\d+)_[A-Za-z0-9]*(?:_[a-z]+)?$/;
 
-/** The action repository names its e2e worksheets `gsheet.action_e2e_$(date +%s)_<sha>`. */
-const ACTION_TITLE = /^gsheet\.action_e2e_(\d+)_[A-Za-z0-9]+$/;
+/**
+ * The action repository names its e2e worksheets `gsheet.action_e2e_$(date +%s)_<sha>`, and its
+ * e2e renames one to `<title>_new` before removing it. A run that dies between the rename and the
+ * remove leaks the renamed form forever unless the variant suffix is matched here, the same way
+ * the CLI prefixes above match their own `_ro`/`_up` variants.
+ */
+const ACTION_TITLE = /^gsheet\.action_e2e_(\d+)_[A-Za-z0-9]+(?:_[a-z]+)?$/;
 
 /**
  * The unit belongs to the owner, not to the digit count. `Date.now()` is always 13 digits and
