@@ -99,17 +99,26 @@ describe('grid growth (#611)', () => {
     ]);
   });
 
-  it('appends through a range that reaches past the grid', async () => {
-    // placement still follows getRange, where an explicit range wins over minRow/minCol;
-    // this task only makes the grid big enough for that write to land
-    await gsheet.appendData(FOUR_BY_THREE, { worksheetTitle: FULL, range: `'${FULL}'!A1:C8` });
+  it('still fails to append through a range that reaches past the grid', async () => {
+    // KNOWN LIMITATION, written up in test-docs/revive-v3.md. appendData reads before it
+    // writes, and the read carries the caller's range unchanged, so the API refuses it before
+    // any of this task's grid growth gets a chance to run. Growing the grid fixes appendData
+    // with minCol and minRow, which is what #611 reported; it does not fix appendData with a
+    // range that already points outside the grid.
+    const error = await rejection(() => gsheet.appendData(FOUR_BY_THREE, { worksheetTitle: FULL, range: `'${FULL}'!A1:C8` }));
+    expect(error.message).to.equal(`Range (${FULL}!C8) exceeds grid limits. Max rows: 3, max columns: 2`);
 
     const sheet = fake.worksheet(SPREADSHEET_ID, FULL);
-    expect(sheet.rowCount).to.be.at.least(8);
-    expect(sheet.columnCount).to.be.at.least(3);
-    expect(fake.cell(SPREADSHEET_ID, FULL, 'A1')).to.equal('C1');
-    expect(fake.cell(SPREADSHEET_ID, FULL, 'E4')).to.equal('');
-    expect(fake.cell(SPREADSHEET_ID, FULL, 'C4')).to.equal('E4');
+    expect(sheet.rowCount).to.equal(3);
+    expect(sheet.columnCount).to.equal(2);
+    expect(fake.cell(SPREADSHEET_ID, FULL, 'A1')).to.equal('A1');
+  });
+
+  it('updates through a range that reaches past the grid, because updateData never reads', async () => {
+    await gsheet.updateData([['P', 'Q', 'R']], { worksheetTitle: FULL, range: `'${FULL}'!A8:C8` });
+    expect(fake.worksheet(SPREADSHEET_ID, FULL).rowCount).to.be.at.least(8);
+    expect(fake.cell(SPREADSHEET_ID, FULL, 'A8')).to.equal('P');
+    expect(fake.cell(SPREADSHEET_ID, FULL, 'C8')).to.equal('R');
   });
 
   it('grows the grid without moving unrelated data', async () => {

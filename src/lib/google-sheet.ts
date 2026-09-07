@@ -1,6 +1,7 @@
 import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
 import { CredentialsInput, normalizeCredentials } from './credentials';
+import { log } from './log';
 import { colToA, getLongestArray, getRange, parseRange, requiredGrid } from './utils';
 
 export namespace GoogleSheetCli {
@@ -44,16 +45,11 @@ const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
 const LOG_NAMESPACE = 'gsheet:sheets';
 
 /**
- * Say on stderr why a call did nothing, using the same transport and prefix as the
- * credentials debug output. Not gated behind DEBUG: a silent no-op is the thing worth
- * warning about, so it has to be visible without the caller knowing to ask for it.
- *
- * @param {string} message
- * @returns {void}
+ * Say on stderr why a call did nothing. Not gated behind DEBUG, unlike the credentials
+ * output: a silent no-op is the thing worth warning about, so the caller has to see it
+ * without knowing to ask.
  */
-const warn = (message: string): void => {
-  process.stderr.write(`${LOG_NAMESPACE} ${message}\n`);
-};
+const warn = (message: string): void => log(LOG_NAMESPACE, message);
 
 /**
  * GoogleSheet helper class for CRUD operations
@@ -132,10 +128,15 @@ export default class GoogleSheet {
    * @memberof GoogleSheet
    */
   async getData(options: GoogleSheetCli.QueryOptions = {}, spreadsheetId?: string): Promise<GoogleSheetCli.SheetData> {
+    // what the caller actually named, before the remembered title fills the gap
+    const namedTitle = options.worksheetTitle;
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
     if (options.range) {
       const parsedOptions = parseRange(options.range);
-      if (parsedOptions.worksheetTitle) {
+      // Take the worksheet from the range only when the caller did not name one. Letting the
+      // range win over an explicit title would silently retarget this call and, because the
+      // winner is remembered on the instance, every command after it.
+      if (parsedOptions.worksheetTitle && !namedTitle) {
         options.worksheetTitle = parsedOptions.worksheetTitle;
       }
       if (parsedOptions.minCol) {
@@ -249,14 +250,18 @@ export default class GoogleSheet {
    * @memberof GoogleSheet
    */
   async updateData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
+    // what the caller actually named, before the remembered title fills the gap. Only a title
+    // the caller passed can contradict a range; a title left over from an earlier command on
+    // the same instance is not something they said here.
+    const namedTitle = options.worksheetTitle;
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
 
     // a range names its own worksheet, and that is the one the write lands on
     const rangeTitle = options.range ? parseRange(options.range).worksheetTitle : undefined;
     const targetTitle = rangeTitle || options.worksheetTitle;
     if (!targetTitle) throw 'Specify worksheetTitle';
-    if (rangeTitle && options.worksheetTitle && rangeTitle !== options.worksheetTitle) {
-      throw new Error(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${options.worksheetTitle}"`);
+    if (rangeTitle && namedTitle && rangeTitle !== namedTitle) {
+      throw new Error(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"`);
     }
     if (!Array.isArray(data) || !data.every(Array.isArray)) {
       throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';

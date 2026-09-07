@@ -218,10 +218,11 @@ Range (Full!A4) exceeds grid limits. Max rows: 3, max columns: 2
 Requested writing within range ['Full'!A11], but tried writing to row [14]
 ```
 
-Known limits of the fake: reads are clamped to the grid rather than rejected (writes are strict);
-`values.get` always quotes the worksheet title in the `range` it echoes, where Google only quotes
-when the title needs it; `values.append` only models `insertDataOption=OVERWRITE`; no formatting,
-formulas, merged cells or protected ranges.
+Known limits of the fake — reads were clamped to the grid here rather than refused, which round 2
+corrected; see *the fake was more permissive than the API* below. What is left: `values.get`
+always quotes the worksheet title in the `range` it echoes, where Google only quotes when the
+title needs it; `values.append` only models `insertDataOption=OVERWRITE`; no formatting, formulas,
+merged cells or protected ranges.
 
 ### `values.append` — what it would have done differently
 
@@ -361,3 +362,69 @@ origin.**
   `5 + 3 = 8`.
 - Why it has gone unnoticed: every caller in this repo and in `gsheet.action` appends with
   `minCol` only and leaves `minRow` unset, where the origin is row 1 and the two agree.
+
+### Correction after review round 2: the fake was more permissive than the API, and it was hiding a gap
+
+The first revision of `test/fake-sheets.ts` clamped a read whose range reached past the grid
+instead of refusing it, and said so as an unverified assumption. The library itself argues the
+other way: `getData` clamps `maxRow` and `maxCol` to `gridProperties` before every read, which is
+only worth doing if an unclamped read fails. The fake now refuses an out-of-grid read exactly the
+way it refuses an out-of-grid write.
+
+Making it strict turned exactly one test red, and that red was the truth.
+
+**Known limitation: `appendData` with a `range` that already points outside the grid still fails.**
+
+- What the caller passes:
+  `appendData([['C1','D1','E1'], …], { worksheetTitle: 'T', range: "'T'!A1:C8" })` on a worksheet
+  whose grid is 3 rows by 2 columns.
+- What happens: `appendData` calls `getData` first, and `getRange` hands the caller's range to
+  `values.get` unchanged. The API refuses the read before any of this release's grid growth runs:
+  `Range (T!C8) exceeds grid limits. Max rows: 3, max columns: 2`. Nothing is written and the grid
+  is untouched.
+- What should happen: `appendData` should size the grid to the range before reading it, or narrow
+  the read to the part of the range that exists. Either is a bigger change than a fix release
+  wants, and neither is what #611 asked for.
+- What #611 did ask for is fixed: `appendData` with `minCol`/`minRow`, and `updateData` with a
+  range past the grid, both work — `updateData` never reads, so its out-of-grid range reaches
+  `ensureGridSize` intact.
+- Pinned by `still fails to append through a range that reaches past the grid` in
+  `test/grid-growth.test.ts` and by `[4] refuses to append through a range that reaches past the
+  grid` in `test/google-sheet.test.ts`. If the live one ever passes on CI, the API is permissive
+  on reads after all, the fake's strict model is wrong, and it has to be relaxed to match.
+
+### Correction after review round 2: neither a remembered title nor an unquoted range may retarget a call
+
+Two ways the first revision could move a write to a worksheet the caller did not ask for.
+
+**`updateData` compared the range against a remembered title.** `options.worksheetTitle =
+options.worksheetTitle || this.worksheetTitle` ran before the comparison, so a title left over
+from an earlier command contradicted an explicit range and threw. The action runs every command
+through one shared `GoogleSheet`, so a workflow that touched sheet A and later addressed sheet B
+by range was green on 2.2.x and would have failed on 2.3.0. The comparison now uses only the title
+the caller passed to that call; the remembered title stays a fallback for resolving the target and
+is never a party to the check. Pinned by `writes to the worksheet a range names, even after
+another one was touched`.
+
+**`getData` adopted an unquoted range's worksheet over an explicit one.** The old regex parser
+dropped an unquoted title, so `getData({ worksheetTitle: 'A', range: 'B!A1:C3' })` validated and
+remembered A; the new parser returns B, and the method overwrote with it — which also steers every
+later command, because the winner is remembered on the instance. The range's title is now adopted
+only when the caller named none. Pinned by `keeps an explicit worksheetTitle when a range
+disagrees with it` and `takes the worksheet from the range when no worksheetTitle is given`.
+
+One knock-on worth naming: with a *quoted* range plus an explicit `worksheetTitle`, 2.2.x let the
+range win, because the old parser did recognise quoted titles. Under the new rule the explicit
+title wins there too. That combination is a caller saying two different things in one call; the
+write path now rejects it outright, and this makes the read path stop silently picking a side.
+
+### Live coverage added in round 2
+
+`test/google-sheet.test.ts` gained `google-sheet grid growth (#611)`, six cases against the shared
+test spreadsheet, using `sheets.spreadsheets.batchUpdate` in the test file to create the
+constrained grids the public API cannot: fill a 3x2 grid exactly, append four rows of three
+columns past its end, append through a range inside the grid, refuse to append through a range
+past it, update through `'<title>'!A5:C6` past it, and grow a 12x8 sheet twice without moving a
+sentinel written to `E10` first. Each has an offline twin in `test/grid-growth.test.ts`. They
+cannot run on this machine (no credentials, plan ruling R1) and are deferred to CI, which is the
+point: they are what closes the risk that the fake is wrong in the same direction as the code.

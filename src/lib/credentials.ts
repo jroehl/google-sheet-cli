@@ -1,5 +1,6 @@
 import { createPrivateKey } from 'crypto';
 import { readFileSync } from 'fs';
+import { log } from './log';
 
 const DEBUG_NAMESPACE = 'gsheet:credentials';
 
@@ -28,12 +29,7 @@ export interface NormalizedCredentials {
 /**
  * Log the cause of a rejected key, which is raw OpenSSL text that means nothing to most users.
  */
-const debug = (message: string): void => {
-  const namespaces = (process.env.DEBUG || '').split(/[\s,]+/);
-  if (namespaces.some((namespace) => namespace === '*' || namespace === 'gsheet:*' || namespace === DEBUG_NAMESPACE)) {
-    process.stderr.write(`${DEBUG_NAMESPACE} ${message}\n`);
-  }
-};
+const debug = (message: string): void => log(DEBUG_NAMESPACE, message, true);
 
 /**
  * Shells and CI secret stores hand values over with the quotes still attached.

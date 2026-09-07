@@ -248,6 +248,29 @@ describe('google-sheet regression', () => {
       ]);
     });
 
+    it('keeps an explicit worksheetTitle when a range disagrees with it', async () => {
+      // the old regex parser dropped an unquoted title, so a call naming both kept the one it
+      // was given. It has to keep doing that: the title is remembered on the instance, so
+      // letting the range win would retarget every later command in the run as well.
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      const options: GoogleSheetCli.QueryOptions = { worksheetTitle: TITLE, range: `Second!A1:B2` };
+      await gsheet.getData(options);
+      expect(options.worksheetTitle).to.equal(TITLE);
+
+      await gsheet.updateData([['stays']], { minCol: 1, minRow: 1 });
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('stays');
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('');
+    });
+
+    it('takes the worksheet from the range when no worksheetTitle is given', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      const options: GoogleSheetCli.QueryOptions = { range: `'Second'!A1:B2` };
+      await gsheet.getData(options);
+      expect(options.worksheetTitle).to.equal('Second');
+    });
+
     it('reads a quoted range', async () => {
       await gsheet.updateData(RAW_DATA, { worksheetTitle: TITLE });
       const data = await gsheet.getData({ range: `'${TITLE}'!A2:B3` });
@@ -309,6 +332,24 @@ describe('google-sheet regression', () => {
       await gsheet.updateData([['a', 'b']], { worksheetTitle: TITLE });
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('a');
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'B1')).to.equal('b');
+    });
+
+    it('succeeds and changes nothing when there are no rows', async () => {
+      // a job that writes "whatever arrived today" and finds nothing has always succeeded
+      await gsheet.updateData([['keep']], { worksheetTitle: TITLE, minCol: 1, minRow: 1 });
+      const result = await gsheet.updateData([], { worksheetTitle: TITLE, minCol: 1, minRow: 1 });
+      expect(result).to.equal(undefined);
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('keep');
+    });
+
+    it('writes to the worksheet a range names, even after another one was touched', async () => {
+      // the action runs every command through one shared instance, so the title left over from
+      // an earlier command must not contradict a range given here
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      await gsheet.updateData([['landed']], { range: `'Second'!A1` });
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('landed');
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('');
     });
 
     it('honors valueInputOption', async () => {

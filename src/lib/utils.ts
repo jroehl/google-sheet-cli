@@ -122,11 +122,9 @@ const splitRange = (range: string): { worksheetTitle?: string; a1Notation: strin
 export const parseRange = (range: string): Pick<GoogleSheetCli.QueryOptions, 'maxCol' | 'minCol' | 'maxRow' | 'minRow' | 'worksheetTitle'> => {
   const { worksheetTitle, a1Notation } = splitRange(range);
 
-  // "'title'!" addresses the whole worksheet
-  if (!a1Notation) {
-    if (!worksheetTitle) throw new Error(`Invalid range "${range}"`);
-    return { worksheetTitle };
-  }
+  // "'title'!" addresses the whole worksheet. A range with neither half names nothing, which
+  // is what the old parser returned for it, so it keeps returning that rather than throwing.
+  if (!a1Notation) return { worksheetTitle: worksheetTitle || undefined };
 
   try {
     const [from, to] = a1Notation.split(':');

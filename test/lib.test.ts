@@ -78,6 +78,10 @@ describe('lib', () => {
       ["'O''Brien'!A1", { worksheetTitle: "O'Brien", minCol: 1, minRow: 1, maxCol: 1, maxRow: 1 }],
       ["'Wow! Sheet'!A1", { worksheetTitle: 'Wow! Sheet', minCol: 1, minRow: 1, maxCol: 1, maxRow: 1 }],
       ["'Sheet1'!", { worksheetTitle: 'Sheet1' }],
+      // the old parser returned a bare {worksheetTitle: undefined} for these rather than
+      // throwing, and parseRange is exported, so they keep doing that
+      ['', { worksheetTitle: undefined }],
+      ['!', { worksheetTitle: undefined }],
       ['B:B', { worksheetTitle: undefined, minCol: 2, minRow: undefined, maxCol: 2, maxRow: undefined }],
       ['Sheet1!B:D', { worksheetTitle: 'Sheet1', minCol: 2, minRow: undefined, maxCol: 4, maxRow: undefined }],
       ['5:5', { worksheetTitle: undefined, minCol: undefined, minRow: 5, maxCol: undefined, maxRow: 5 }],
@@ -93,7 +97,7 @@ describe('lib', () => {
       });
     });
 
-    ['Sheet1', 'a1', "'unterminated!A1", '', '!'].forEach((range) => {
+    ['Sheet1', 'a1', "'unterminated!A1"].forEach((range) => {
       it(`rejects ${JSON.stringify(range)}`, async () => {
         expect(() => parseRange(range)).to.throw(`Invalid range "${range}"`);
       });
