@@ -6,11 +6,15 @@ A simple helper cli to interact with google sheets.
 
 3.0.0 is a platform release. Every command, every flag and everything the commands print is the same as on 2.3.0, and the sequence of Sheets API calls each library method makes is unchanged — same requests, same order, same bodies. What moved is the Node floor, the module a library consumer imports, the type of the errors that are thrown, and one hostname the auth stack talks to.
 
+Coming from 2.2.x rather than 2.3.0? 3.0.0 carries everything in [Changes in 2.3.0](#changes-in-230) as well, so read both. Two of those are outright behaviour changes and are repeated [at the end of this section](#two-22x-calls-that-changed-in-230).
+
+Using the `jroehl/gsheet.action` GitHub Action rather than this package directly? It bundles a pinned copy of `google-sheet-cli` into its committed `dist/`, so none of this reaches a workflow until that action bumps the dependency and publishes.
+
 ### Node 22 or newer
 
 `engines.node` is now `>=22`, so `google-sheet-cli@latest` needs Node 22 or newer. Node 14 through 20 are no longer supported.
 
-The 2.x line stays on npm under the `v2` dist-tag and keeps its old, low Node floor:
+The 2.x line stays on npm under the `v2` dist-tag and keeps its `>=14` floor:
 
 ```sh-session
 $ npm install -g google-sheet-cli@v2
@@ -120,9 +124,19 @@ $ google-sheet help [COMMAND...] [-n]
 
 Nothing about invoking it changes: `google-sheet help data:get` works exactly as before. The strings are named here because they are in the generated docs and in anyone's screenshots.
 
+The same plugin also lays every command's `--help` out slightly differently: a flag that reads an environment variable is annotated `[env: NAME]`, a flag with no short character is indented under the ones that have one, and the dim styling on descriptions is gone. Every flag itself — long name, short character, default, `=<value>` shape — is unchanged. If something parses `--help` output, this is the release that will break it.
+
 ### `js-yaml` is pinned to 3.x on purpose
 
 `data:get --output=yaml` is rendered by a copy of `@oclif/core@2.8.11`'s table, carried in `src/lib/table.ts` because core 5 has no `ux.table` and no successor that keeps the eight table flags. That code calls `safeDump`, which js-yaml 4 renamed to `dump`. The pin exists so the yaml output stays byte-for-byte what 2.2.x emitted, which is the property the whole vendored table was verified against. js-yaml 3.14.1 is end of life; this is a deliberate compatibility pin, not neglect, and moving it means re-running that output comparison, not just changing the version.
+
+### Two 2.2.x calls that changed in 2.3.0
+
+These arrived in 2.3.0, not in 3.0.0, so they are new only to someone upgrading from 2.2.x. Both were found by running the published 2.2.0 build and this one side by side over 62 call shapes; those two are the only differences.
+
+**A range that names no worksheet, together with a `worksheetTitle` that does not exist, now fails.** `updateData(data, { worksheetTitle: 'Ghost', range: 'A1:B1' })` handed `A1:B1` to the API on 2.2.0, which resolved it against the first sheet and wrote there. Now the grid-sizing step looks the worksheet up first, does not find it, and throws. It needs both halves — a range carrying no worksheet, and a title naming a sheet that is gone. The cli cannot reach it (no write command exposes a `range` flag); only the library and the GitHub action's `range` option can.
+
+**`appendData` no longer writes the range's worksheet back onto the options object you passed.** With a quoted range and an explicit title, 2.2.0 left your `worksheetTitle` mutated to the range's worksheet; it is now left as you passed it. The data lands in the same cells either way. It is visible through the GitHub action, which serialises `command.kwargs` into its `results` output, so a workflow reading `kwargs[1].worksheetTitle` after such a call sees a different value.
 
 ### What has not changed
 
