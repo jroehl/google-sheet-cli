@@ -1,5 +1,6 @@
 import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
+import { CredentialsInput, normalizeCredentials } from './credentials';
 import { colToA, getLongestArray, getRange, parseRange } from './utils';
 
 export namespace GoogleSheetCli {
@@ -58,16 +59,18 @@ export default class GoogleSheet {
   constructor(private spreadsheetId?: string, private worksheetTitle?: string | null) {}
 
   /**
-   * Authorize with credentials
+   * Authorize with credentials, either passed directly or read from a service account JSON file
    *
-   * @param {GoogleSheetCli.Credentials} credentials
+   * @param {CredentialsInput} credentials
    * @returns {Promise<void>}
    * @memberof GoogleSheet
    */
-  async authorize(credentials: GoogleSheetCli.Credentials): Promise<void> {
-    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+  async authorize(credentials: CredentialsInput): Promise<void> {
+    const { client_email, private_key } = normalizeCredentials(credentials);
+    if (!client_email) throw new Error('client_email is required to authorize');
+    if (!private_key) throw new Error('private_key is required to authorize');
     // Create the JWT client
-    const auth = await google.auth.getClient({ credentials, scopes: [GOOGLE_FEED_URL] });
+    const auth = await google.auth.getClient({ credentials: { client_email, private_key }, scopes: [GOOGLE_FEED_URL] });
     this.sheets = google.sheets({ version: 'v4', auth });
   }
 
