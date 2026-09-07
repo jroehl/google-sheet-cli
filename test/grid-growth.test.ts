@@ -167,8 +167,18 @@ describe('grid growth (#611)', () => {
     expect(error.message).to.equal(`range "'Other'!A1" targets worksheet "Other" but worksheetTitle is "${FULL}"`);
   });
 
-  it('rejects empty data', async () => {
-    const error = await rejection(() => gsheet.updateData([], { worksheetTitle: FULL, minCol: 1, minRow: 1 }));
+  it('does nothing, successfully, when there are no rows to write', async () => {
+    // a job that writes "whatever arrived today" and finds nothing succeeded on every quiet day
+    // before 2.3.0, so an empty array stays a success - it just no longer costs a request
+    fake.requests.length = 0;
+    const result = await gsheet.updateData([], { worksheetTitle: FULL, minCol: 1, minRow: 1 });
+    expect(result).to.equal(undefined);
+    expect(fake.requests).to.eql([]);
+    expect(fake.cell(SPREADSHEET_ID, FULL, 'A1')).to.equal('A1');
+  });
+
+  it('still rejects data that is not a nested array', async () => {
+    const error = await rejection(() => gsheet.updateData(<any>['a'], { worksheetTitle: FULL, minCol: 1, minRow: 1 }));
     expect(error).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
   });
 

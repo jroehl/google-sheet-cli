@@ -41,6 +41,20 @@ export namespace GoogleSheetCli {
 
 const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
 
+const LOG_NAMESPACE = 'gsheet:sheets';
+
+/**
+ * Say on stderr why a call did nothing, using the same transport and prefix as the
+ * credentials debug output. Not gated behind DEBUG: a silent no-op is the thing worth
+ * warning about, so it has to be visible without the caller knowing to ask for it.
+ *
+ * @param {string} message
+ * @returns {void}
+ */
+const warn = (message: string): void => {
+  process.stderr.write(`${LOG_NAMESPACE} ${message}\n`);
+};
+
 /**
  * GoogleSheet helper class for CRUD operations
  *
@@ -244,8 +258,14 @@ export default class GoogleSheet {
     if (rangeTitle && options.worksheetTitle && rangeTitle !== options.worksheetTitle) {
       throw new Error(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${options.worksheetTitle}"`);
     }
-    if (!Array.isArray(data) || !data.length || !data.every(Array.isArray)) {
+    if (!Array.isArray(data) || !data.every(Array.isArray)) {
       throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+    }
+    // A job that writes "whatever came in today" and finds nothing succeeded on every quiet day
+    // before 2.3.0, so an empty array stays a success. It just no longer costs a request.
+    if (!data.length) {
+      warn('no rows to write, nothing was sent to the spreadsheet');
+      return;
     }
 
     const { rows, cols } = requiredGrid(data, options);

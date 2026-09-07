@@ -299,3 +299,65 @@ the API accepts. A range without a `:` is an anchor cell, not a bound, so it nev
   machine has no Google credentials (plan ruling R1). Each of them has an offline twin in
   `test/grid-growth.test.ts` driven through the fake, including the `E10` sentinel.
 - `npm test` — same reason; it drives the live shared spreadsheet.
+
+### Correction after review round 1: an empty data array is a no-op, not an error
+
+An earlier revision of this step made `updateData(data, options)` throw when `data` was `[]`.
+That was wrong for a minor release. Before 2.3.0 an empty array passed the
+`data.every(Array.isArray)` guard vacuously and went out as an empty `values.update`, which the
+API accepts and which changes nothing — so a job that writes "whatever arrived today" and finds
+nothing succeeded on every quiet day. Turning that into a red run is exactly the regression this
+release must not ship.
+
+`updateData` now returns early on an empty array without making any API call, and says so on
+stderr:
+
+```
+gsheet:sheets no rows to write, nothing was sent to the spreadsheet
+```
+
+The warning is deliberately not gated behind `DEBUG`, unlike the `gsheet:credentials` output: a
+silent no-op is the thing worth warning about, so the caller has to see it without knowing to ask.
+Non-array and non-nested-array input keeps the behaviour it had before this step — the string
+`Check "data" property - has to be supplied as nested array (...)`. `requiredGrid` keeps its own
+non-empty guard, so `getLongestArray` still cannot be reached with an empty array; the guard is
+simply no longer the thing the caller hits.
+
+Covered by `does nothing, successfully, when there are no rows to write` and
+`still rejects data that is not a nested array` in `test/grid-growth.test.ts`.
+
+### Pre-existing bugs found by this step, deliberately not fixed
+
+Both predate 2.3.0, both are out of the step's scope, both are written up here so they can be
+filed as issues.
+
+**1. `appendData` with an explicit `range` overwrites from the start of the range instead of
+appending after the last row.**
+
+- What the caller passes: `appendData([['x', 'y']], { worksheetTitle: 'Sheet1', range: "'Sheet1'!A1:C8" })`
+  on a worksheet that already holds three rows.
+- What happens: `appendData` calls `getData`, works out `minRow = 4` and sets it on the options
+  object — but `getRange` returns `options.range` verbatim whenever a range is present, ignoring
+  `minRow`. The write goes to `'Sheet1'!A1:C8`, so `['x', 'y']` lands on row 1 and overwrites the
+  first existing row. The computed `minRow` is reported back to the caller and is a lie.
+- What should happen: either `appendData` narrows the range to start at the computed row
+  (`'Sheet1'!A4:C8`), or it rejects the combination of `range` and append semantics outright.
+  Silently overwriting is the one thing it should not do.
+- Where it is visible today: `appends through a range that reaches past the grid` in
+  `test/grid-growth.test.ts` asserts the current behaviour with a comment saying so.
+
+**2. `appendData` with `minRow` greater than 1 computes the target row relative to the wrong
+origin.**
+
+- What the caller passes: `appendData([['A8', 'B8']], { worksheetTitle: 'Sheet1', minCol: 1, minRow: 5 })`
+  on a worksheet whose only data is in rows 5 to 7.
+- What happens: `getData` reads from row 5, so `rawData.length` is 3 — rows counted from the start
+  of the *queried* range. `appendData` then sets `minRow = rawData.length + 1 = 4`, which is
+  addressed from row 1, and the write lands on row 4, on top of nothing but above the existing
+  table. Confirmed against `values.append`, which puts the same write on row 8 (see the
+  comparison table above, case C).
+- What should happen: the target row is the queried range's start row plus the number of rows
+  found, minus one, plus one — that is, `(options.minRow || 1) + rawData.length`. In the example,
+  `5 + 3 = 8`.
+- Why it has gone unnoticed: every caller in this repo and in `gsheet.action` appends with
+  `minCol` only and leaves `minRow` unset, where the origin is row 1 and the two agree.

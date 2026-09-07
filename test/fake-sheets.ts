@@ -501,7 +501,16 @@ export class FakeSheets {
   }
 
   /**
-   * `spreadsheets.values.get`. Reads are clamped to the grid, the way the API clamps them.
+   * `spreadsheets.values.get`.
+   *
+   * UNVERIFIED ASSUMPTION: a read whose range reaches past the grid is clamped to the grid
+   * rather than rejected, where a write in the same position is rejected ("exceeds grid
+   * limits"). This could not be checked against the real API - the machine that wrote these
+   * tests had no Google credentials - so whoever first runs the live suite on CI should
+   * confirm it. Exactly one test depends on it: "appends through a range that reaches past
+   * the grid" in test/grid-growth.test.ts, which reads `'Full'!A1:C8` from a 3x2 worksheet.
+   * Everything else queries within the grid, because getData clamps maxRow and maxCol to
+   * gridProperties before asking.
    */
   private valuesGet(spreadsheetId: string, range: string): FakeResponse {
     const spreadsheet = this.spreadsheets.get(spreadsheetId);
