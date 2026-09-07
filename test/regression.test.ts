@@ -363,12 +363,29 @@ describe('google-sheet regression', () => {
       expect(error.message).to.equal('Option property "worksheetTitle" is required');
     });
 
-    it('throws when minCol is omitted, because the header naming starts at column 0', async () => {
-      // a long standing quirk of getData; the CLI always defaults minCol to 1
+    // 3.0.0 fixes this; the two cases below replace one that pinned the throw. Omitting minCol
+    // used to fail with `col has to be greater than 1`, because the header naming counted from
+    // column 0 while the range getData had just read started at column A. 2.2.0 threw here too,
+    // so this is not a regression being introduced but a bug being removed, and it only ever
+    // reached a library caller or a whole-worksheet quoted range - the cli defaults --minCol to 1.
+    it('3.0.0: reads from column A when minCol is omitted, exactly as minCol 1 does', async () => {
       await gsheet.updateData(BLOCK, { worksheetTitle: TITLE, minCol: 1, minRow: 1 });
-      const error = await rejection(() => gsheet.getData({ worksheetTitle: TITLE, minRow: 1 }));
-      expect(error).to.be.an.instanceOf(Error);
-      expect(error.message).to.equal('col has to be greater than 1');
+      const omitted = await gsheet.getData({ worksheetTitle: TITLE, minRow: 1 });
+      const explicit = await gsheet.getData({ worksheetTitle: TITLE, minRow: 1, minCol: 1 });
+
+      // the answer is not merely "not a throw": both calls send the identical request, so they
+      // have to come back with the identical result
+      expect(omitted).to.eql(explicit);
+      expect(omitted.header).to.eql(['(A)', '(B)', '(C)', '(D)', '(E)', '(F)']);
+      expect(omitted.rawData[0]).to.eql(['A1', 'A2', 'A3', 'A4', 'A5', '']);
+    });
+
+    it('3.0.0: a whole-worksheet quoted range reads from column A too', async () => {
+      await gsheet.updateData(BLOCK, { worksheetTitle: TITLE, minCol: 1, minRow: 1 });
+      const data = await gsheet.getData({ range: `'${TITLE}'!` });
+
+      expect(data.header).to.eql(['(A)', '(B)', '(C)', '(D)', '(E)', '(F)']);
+      expect(data.rawData[1]).to.eql(['B1', '', 'B3', 'B4', 'B5', 'B6']);
     });
   });
 

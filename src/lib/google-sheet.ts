@@ -195,7 +195,15 @@ export default class GoogleSheet {
       }
     }
 
-    let maxCol = (sanitizedOptions.maxCol ? sanitizedOptions.maxCol + 1 : 0) - (sanitizedOptions.minCol || 0);
+    // An absent minCol is column 1, not column 0: `getRange` above already reads from
+    // `colToA(minCol || 1)`, so the column these two lines describe has to start in the same
+    // place as the range that was actually fetched. They said `|| 0` instead, which made the
+    // labelling loop below ask for `colToA(0)` and throw `col has to be greater than 1` for
+    // every caller who omitted minCol - a library caller, or a whole-worksheet quoted range,
+    // never the cli, which defaults --minCol to 1. Such a call now returns exactly what the
+    // same call with an explicit `minCol: 1` returns, which is right rather than merely
+    // non-throwing: both issue the identical request.
+    let maxCol = (sanitizedOptions.maxCol ? sanitizedOptions.maxCol + 1 : 0) - (sanitizedOptions.minCol || 1);
     let maxRow = 0;
     if (values) {
       maxCol = getLongestArray(values).length;
@@ -204,7 +212,7 @@ export default class GoogleSheet {
 
     // fill missing headings
     for (let c = 0; c < maxCol; c++) {
-      header[c] = header[c] || `(${colToA(c + (sanitizedOptions.minCol || 0))})`;
+      header[c] = header[c] || `(${colToA(c + (sanitizedOptions.minCol || 1))})`;
     }
 
     let formatted: GoogleSheetCli.FormattedData[] = [];
