@@ -1,5 +1,5 @@
 import { Args, Command, Flags } from '@oclif/core';
-import { FlagInput } from '@oclif/core/interfaces';
+import { FlagInput, OutputArgs, OutputFlags } from '@oclif/core/interfaces';
 import { ux } from '@oclif/core/ux';
 import { createInterface } from 'readline';
 import { normalizeCredentials } from './credentials';
@@ -43,38 +43,68 @@ interface CommonFlags {
   help: void;
 }
 
-// `@oclif/core/interfaces` re-exports `FlagInput` but not these two, and node16 resolution
-// refuses the deep path they live behind. Both are index signatures in core itself.
-type FlagOutput = { [name: string]: any };
-type ArgOutput = { [name: string]: any };
-
 /**
  * Ask for one secret on the terminal without echoing it back.
  *
  * `@oclif/core` 2 had `ux.prompt(message, { type: 'hide' })` for this; core 5 dropped the whole
- * prompt module along with its `password-prompt` dependency, so the same "print the label, read a
- * line, echo nothing" contract is kept here rather than taking a new runtime dependency for it.
+ * prompt module along with its `password-prompt` dependency, so the contract that dependency
+ * provided is kept here rather than taking a new one for it. Three parts of that contract are
+ * load-bearing and easy to lose:
+ *
+ * - everything goes to **stderr**. stdout is the command's output, and `--rawOutput` promises it
+ *   is JSON; a prompt written there lands in the middle of a `| jq` pipeline.
+ * - an empty answer is refused and the question asked again, rather than being handed on as an
+ *   empty credential that fails later as an opaque authentication error.
+ * - the muted `write` is put back whatever happens, including on an aborted prompt (EOF, Ctrl-D),
+ *   which closes the interface without ever calling back. Leaving it swallowed would silence the
+ *   process for good.
  *
  * @param {string} message
  * @returns {Promise<string>}
  */
-const hiddenPrompt = (message: string): Promise<string> =>
-  new Promise((resolve) => {
-    const output = process.stdout;
-    const write = output.write.bind(output);
+export const hiddenPrompt = (message: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const stderr = process.stderr;
+    // the function itself, not a bound copy: restoring a copy would leave a different `write` on
+    // the stream every time, which stacks up and defeats anyone else swapping it
+    const write = stderr.write;
     let muted = false;
-    // readline echoes what is typed; swallow those writes until the answer is in
-    (output as any).write = (chunk: any, ...rest: any[]) => (muted ? true : write(chunk, ...rest));
+    let answered = false;
 
-    const rl = createInterface({ input: process.stdin, output, terminal: true });
-    rl.question(`${message}: `, (answer) => {
+    const restore = () => {
       muted = false;
-      (output as any).write = write;
-      write('\n');
-      rl.close();
-      resolve(answer.trim());
+      (stderr as any).write = write;
+    };
+
+    // readline echoes what is typed; swallow those writes while an answer is being entered
+    (stderr as any).write = (...args: any[]) => (muted ? true : (write as any).apply(stderr, args));
+
+    const rl = createInterface({ input: process.stdin, output: stderr, terminal: true });
+
+    rl.on('close', () => {
+      restore();
+      process.stdin.pause();
+      if (!answered) reject(new Error('No input'));
     });
-    muted = true;
+
+    const ask = () => {
+      // the question itself has to reach the terminal, so unmute around writing it
+      muted = false;
+      rl.question(`${message}: `, (answer) => {
+        if (answer === '') {
+          ask();
+          return;
+        }
+        answered = true;
+        restore();
+        stderr.write('\n');
+        rl.close();
+        resolve(answer);
+      });
+      muted = true;
+    };
+
+    ask();
   });
 
 export default abstract class extends Command {
@@ -135,7 +165,7 @@ export default abstract class extends Command {
 
   async init() {
     // do some initialization
-    const { flags } = await this.parse<CommonFlags, FlagOutput, ArgOutput>(<any>this.constructor);
+    const { flags } = await this.parse<CommonFlags, OutputFlags<any>, OutputArgs<any>>(<any>this.constructor);
     this.rawLogs = !!flags?.rawOutput;
 
     // Only prompt for what the flags, the env and the credentials file left missing.
