@@ -95,40 +95,24 @@ jobs:
             exit 1
           fi
 
-      - name: Configure 1Password Service Account
-        if: github.event_name == 'push'
-        uses: 1password/load-secrets-action/configure@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-        with:
-          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-
-      - name: Load Secrets
-        if: github.event_name == 'push'
-        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-        with:
-          unset-previous: false
-          export-env: true
-        env:
-          GSHEET_CLIENT_EMAIL: 'op://service-account/github.actions/GSHEET_CLIENT_EMAIL'
-          GSHEET_PRIVATE_KEY: 'op://service-account/github.actions/GSHEET_PRIVATE_KEY'
-          TEST_SPREADSHEET_ID: 'op://service-account/github.actions/TEST_SPREADSHEET_ID'
-
-      # An empty secret makes the live suite fail deep inside googleapis with an unrelated
-      # message; say so here instead.
+      # The three credentials are plain repository secrets. A secret that does not exist
+      # interpolates to an empty string rather than failing, and an empty one makes the live
+      # suite fail deep inside googleapis with an unrelated message; say so here instead.
       - name: assert secrets
         if: github.event_name == 'push'
         run: test -n "$TEST_SPREADSHEET_ID" && test -n "$GSHEET_PRIVATE_KEY" && test -n "$GSHEET_CLIENT_EMAIL"
         env:
-          GSHEET_CLIENT_EMAIL: ${{ env.GSHEET_CLIENT_EMAIL }}
-          GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
-          TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
+          GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
+          GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
+          TEST_SPREADSHEET_ID: ${{ secrets.TEST_SPREADSHEET_ID }}
 
       - name: test
         if: github.event_name == 'push'
         run: npm run test
         env:
-          GSHEET_CLIENT_EMAIL: ${{ env.GSHEET_CLIENT_EMAIL }}
-          GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
-          TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
+          GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
+          GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
+          TEST_SPREADSHEET_ID: ${{ secrets.TEST_SPREADSHEET_ID }}
 
       # Reports what the cron would remove, without removing anything, so a bad classification
       # shows up on the push that caused it.
@@ -136,9 +120,9 @@ jobs:
         if: github.event_name == 'push'
         run: npm run cleanup -- --dry-run
         env:
-          GSHEET_CLIENT_EMAIL: ${{ env.GSHEET_CLIENT_EMAIL }}
-          GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
-          TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
+          GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
+          GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
+          TEST_SPREADSHEET_ID: ${{ secrets.TEST_SPREADSHEET_ID }}
 
       - name: check for uncommitted changes
         # Ensure no changes, but ignore node_modules dir since dev/fresh ci deps installed.
@@ -169,22 +153,9 @@ jobs:
       - name: ci
         run: npm ci
 
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-        with:
-          service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-
-      - name: Load Secrets
-        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
-        with:
-          unset-previous: false
-          export-env: true
-        env:
-          NPM_TOKEN: 'op://service-account/github.actions/NPM_TOKEN'
-
       - name: semantic-release
         run: |
           npm run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ env.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
