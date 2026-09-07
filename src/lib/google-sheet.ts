@@ -2,7 +2,7 @@ import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
 import { CredentialsInput, normalizeCredentials } from './credentials';
 import { log } from './log';
-import { colToA, getLongestArray, getRange, parseRange, requiredGrid } from './utils';
+import { colToA, getLongestArray, getRange, parseRange, rangeWorksheet, requiredGrid } from './utils';
 
 export namespace GoogleSheetCli {
   export interface Credentials {
@@ -128,15 +128,14 @@ export default class GoogleSheet {
    * @memberof GoogleSheet
    */
   async getData(options: GoogleSheetCli.QueryOptions = {}, spreadsheetId?: string): Promise<GoogleSheetCli.SheetData> {
-    // what the caller actually named, before the remembered title fills the gap
-    const namedTitle = options.worksheetTitle;
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
     if (options.range) {
       const parsedOptions = parseRange(options.range);
-      // Take the worksheet from the range only when the caller did not name one. Letting the
-      // range win over an explicit title would silently retarget this call and, because the
-      // winner is remembered on the instance, every command after it.
-      if (parsedOptions.worksheetTitle && !namedTitle) {
+      // A quoted title inside the range overwrites worksheetTitle; an unquoted one does not.
+      // That is not a preference, it is what 2.2.0 did - its regex only ever recognised the
+      // quoted form - and the choice is remembered on the instance, so it steers every later
+      // command in the run as well. Both halves have to stay.
+      if (parsedOptions.worksheetTitle && rangeWorksheet(options.range).quoted) {
         options.worksheetTitle = parsedOptions.worksheetTitle;
       }
       if (parsedOptions.minCol) {
@@ -256,10 +255,14 @@ export default class GoogleSheet {
     const namedTitle = options.worksheetTitle;
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
 
-    // a range names its own worksheet, and that is the one the write lands on
-    const rangeTitle = options.range ? parseRange(options.range).worksheetTitle : undefined;
-    const targetTitle = rangeTitle || options.worksheetTitle;
+    // Which worksheet this call resolves to follows getData: a quoted title inside the range
+    // wins, an unquoted one does not, because that is what 2.2.0 did.
+    const { worksheetTitle: rangeTitle, quoted } = options.range ? rangeWorksheet(options.range) : { worksheetTitle: undefined, quoted: false };
+    const targetTitle = (quoted ? rangeTitle : undefined) || options.worksheetTitle;
     if (!targetTitle) throw 'Specify worksheetTitle';
+    // The mismatch check ignores quoting, though. Whichever way the range spelled it, a caller
+    // who named one worksheet and a range naming another has said two contradictory things, and
+    // writing to the one they did not name is the failure worth refusing.
     if (rangeTitle && namedTitle && rangeTitle !== namedTitle) {
       throw new Error(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"`);
     }
@@ -275,7 +278,11 @@ export default class GoogleSheet {
 
     const { rows, cols } = requiredGrid(data, options);
     const sheet = await this.getWorksheet(targetTitle, spreadsheetId);
-    await this.ensureGridSize(sheet, rows, cols, spreadsheetId);
+    // Only size a grid the write is going to land in. With an unquoted range and no explicit
+    // title the call resolves to the remembered worksheet while getRange sends the write to the
+    // range's, so growing here would add rows to a sheet nobody asked about. Leaving it alone is
+    // what 2.2.0 did with that combination.
+    if (!rangeTitle || rangeTitle === targetTitle) await this.ensureGridSize(sheet, rows, cols, spreadsheetId);
 
     const range = getRange(options);
     await this.sheets.spreadsheets.values.update({

@@ -428,3 +428,41 @@ past it, update through `'<title>'!A5:C6` past it, and grow a 12x8 sheet twice w
 sentinel written to `E10` first. Each has an offline twin in `test/grid-growth.test.ts`. They
 cannot run on this machine (no credentials, plan ruling R1) and are deferred to CI, which is the
 point: they are what closes the risk that the fake is wrong in the same direction as the code.
+
+### Correction after review round 3: quoted and unquoted range titles are not the same thing
+
+Round 2 collapsed both into "an explicit worksheetTitle always wins", which fixed the unquoted case
+and broke the quoted one. 2.2.0's range parser was a regex that only ever recognised a *quoted*
+title, and `getData` overwrote its `worksheetTitle` option with whatever came back — so a quoted
+title has always won and an unquoted one has always been ignored. Both halves are restored.
+
+`rangeWorksheet(range)` in `src/lib/utils.ts` reports the title and whether the range quoted it.
+`parseRange` is unchanged; this is about what the methods do with what they are given.
+
+**What each method now does, for each of the four combinations.** A is the caller's
+`worksheetTitle`, B is the worksheet the range names, R is the title remembered on the instance
+from an earlier command.
+
+| Combination | `getData` | `updateData` |
+|---|---|---|
+| quoted range B + explicit A | resolves to **B**, and remembers B (2.2.x) | **throws** `range "…" targets worksheet "B" but worksheetTitle is "A"` |
+| quoted range B + explicit B (agreeing) | resolves to B | writes to B, grows B's grid |
+| quoted range B, no title | resolves to **B**, and remembers B (2.2.x) | writes to B, grows B's grid |
+| unquoted range B + explicit A | resolves to **A**, and remembers A (2.2.x) | **throws** the same mismatch error |
+| unquoted range B + explicit B (agreeing) | resolves to B | writes to B, grows B's grid |
+| unquoted range B, no title | resolves to **R**, or throws `Option property "worksheetTitle" is required` with nothing remembered (2.2.x) | resolves to **R** for the grid, but `getRange` sends the write to **B** and the grid is deliberately left alone; `Specify worksheetTitle` with nothing remembered (2.2.x) |
+
+Two deliberate asymmetries in that table:
+
+- **The mismatch check ignores quoting** where resolution does not. A caller who names one
+  worksheet and a range naming another has said two contradictory things however the range spelled
+  it, and writing to the one they did not name is the failure worth refusing. Reading from it is
+  not, so `getData` keeps 2.2.x's silent preference and only the write path refuses.
+- **`updateData` skips `ensureGridSize`** when the range names a worksheet other than the one the
+  call resolved to — the last row of the table. Sizing there would add rows to a sheet nobody
+  asked about, while the write still lands somewhere else. Leaving it alone is what 2.2.0 did with
+  that combination, and it is the only combination where the two can differ, because every other
+  one either agrees or has already thrown.
+
+All six rows are pinned in `test/regression.test.ts`, each labelled with the 2.2.x behaviour it
+preserves.

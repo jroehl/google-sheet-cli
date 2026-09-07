@@ -83,9 +83,9 @@ const parseA1Notation = (a1Notation: string): { col?: number; row?: number } => 
  * spaces, exclamation marks and apostrophes escaped by doubling them ('O''Brien').
  *
  * @param {string} range
- * @returns {{ worksheetTitle?: string; a1Notation: string }}
+ * @returns {{ worksheetTitle?: string; a1Notation: string; quoted: boolean }}
  */
-const splitRange = (range: string): { worksheetTitle?: string; a1Notation: string } => {
+const splitRange = (range: string): { worksheetTitle?: string; a1Notation: string; quoted: boolean } => {
   const quote = range[0];
   if (quote === "'" || quote === '"') {
     let index = 1;
@@ -105,12 +105,28 @@ const splitRange = (range: string): { worksheetTitle?: string; a1Notation: strin
     if (range[index] !== quote) throw new Error(`Invalid range "${range}"`);
     const rest = range.slice(index + 1);
     if (rest[0] !== '!') throw new Error(`Invalid range "${range}"`);
-    return { worksheetTitle, a1Notation: rest.slice(1) };
+    return { worksheetTitle, a1Notation: rest.slice(1), quoted: true };
   }
 
   const separator = range.lastIndexOf('!');
-  if (separator < 0) return { a1Notation: range };
-  return { worksheetTitle: range.slice(0, separator), a1Notation: range.slice(separator + 1) };
+  if (separator < 0) return { a1Notation: range, quoted: false };
+  return { worksheetTitle: range.slice(0, separator), a1Notation: range.slice(separator + 1), quoted: false };
+};
+
+/**
+ * The worksheet a range names, and whether the range put it in quotes.
+ *
+ * Up to 2.2.0 the range parser was a regex that only recognised a *quoted* title, and getData
+ * overwrote its `worksheetTitle` option with whatever came back. So a quoted title inside a
+ * range has always won, and an unquoted one has always been ignored. Callers depend on both
+ * halves of that, so the difference has to stay visible to the methods.
+ *
+ * @param {string} range
+ * @returns {{ worksheetTitle?: string; quoted: boolean }}
+ */
+export const rangeWorksheet = (range: string): { worksheetTitle?: string; quoted: boolean } => {
+  const { worksheetTitle, quoted } = splitRange(range);
+  return { worksheetTitle, quoted };
 };
 
 /**

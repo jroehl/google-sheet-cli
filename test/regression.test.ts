@@ -248,10 +248,33 @@ describe('google-sheet regression', () => {
       ]);
     });
 
-    it('keeps an explicit worksheetTitle when a range disagrees with it', async () => {
-      // the old regex parser dropped an unquoted title, so a call naming both kept the one it
-      // was given. It has to keep doing that: the title is remembered on the instance, so
-      // letting the range win would retarget every later command in the run as well.
+    // The four ways a range and a worksheetTitle can meet. 2.2.0's regex only ever recognised a
+    // quoted title inside a range, and getData overwrote worksheetTitle with whatever it got
+    // back, so a quoted title wins and an unquoted one is ignored. The choice is remembered on
+    // the instance and steers every later command, so all four are pinned.
+
+    it('2.2.x: a quoted range worksheet overwrites an explicit worksheetTitle', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      const options: GoogleSheetCli.QueryOptions = { worksheetTitle: TITLE, range: `'Second'!A1:B2` };
+      await gsheet.getData(options);
+      expect(options.worksheetTitle).to.equal('Second');
+
+      // and the instance now remembers Second, which is what the next command will use
+      await gsheet.updateData([['moved']], { minCol: 1, minRow: 1 });
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('moved');
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('');
+    });
+
+    it('2.2.x: a quoted range worksheet is used when no worksheetTitle is given', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      const options: GoogleSheetCli.QueryOptions = { range: `'Second'!A1:B2` };
+      await gsheet.getData(options);
+      expect(options.worksheetTitle).to.equal('Second');
+    });
+
+    it('2.2.x: an unquoted range worksheet does not overwrite an explicit worksheetTitle', async () => {
       await gsheet.addWorksheet('Second');
       await gsheet.getWorksheet(TITLE);
       const options: GoogleSheetCli.QueryOptions = { worksheetTitle: TITLE, range: `Second!A1:B2` };
@@ -263,12 +286,18 @@ describe('google-sheet regression', () => {
       expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('');
     });
 
-    it('takes the worksheet from the range when no worksheetTitle is given', async () => {
+    it('2.2.x: an unquoted range worksheet is ignored, leaving the remembered one', async () => {
       await gsheet.addWorksheet('Second');
       await gsheet.getWorksheet(TITLE);
-      const options: GoogleSheetCli.QueryOptions = { range: `'Second'!A1:B2` };
+      const options: GoogleSheetCli.QueryOptions = { range: `Second!A1:B2` };
       await gsheet.getData(options);
-      expect(options.worksheetTitle).to.equal('Second');
+      expect(options.worksheetTitle).to.equal(TITLE);
+
+      // with nothing remembered either, the unquoted title is still no help
+      const fresh = new GoogleSheet(SPREADSHEET_ID);
+      await fresh.authorize(fake.credentials);
+      const error = await rejection(() => fresh.getData({ range: `Second!A1:B2` }));
+      expect(error).to.equal('Option property "worksheetTitle" is required');
     });
 
     it('reads a quoted range', async () => {
@@ -342,7 +371,11 @@ describe('google-sheet regression', () => {
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('keep');
     });
 
-    it('writes to the worksheet a range names, even after another one was touched', async () => {
+    // The same four combinations as getData. Resolution follows getData - a quoted title in the
+    // range wins, an unquoted one does not - but the mismatch check ignores quoting, because a
+    // write to a worksheet the caller did not name is worth refusing either way.
+
+    it('2.2.x: a quoted range worksheet is written to, even after another one was touched', async () => {
       // the action runs every command through one shared instance, so the title left over from
       // an earlier command must not contradict a range given here
       await gsheet.addWorksheet('Second');
@@ -350,6 +383,37 @@ describe('google-sheet regression', () => {
       await gsheet.updateData([['landed']], { range: `'Second'!A1` });
       expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('landed');
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('');
+    });
+
+    it('2.2.x: a quoted range worksheet matching the explicit title is written to', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.updateData([['agreed']], { worksheetTitle: 'Second', range: `'Second'!A1` });
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('agreed');
+    });
+
+    it('refuses an unquoted range worksheet that contradicts the explicit title', async () => {
+      // 2.2.x wrote to Second here while validating Sheet1; that silence is the bug, not the
+      // behaviour to keep, so this is a new refusal rather than a regression
+      await gsheet.addWorksheet('Second');
+      const error = await rejection(() => gsheet.updateData([['x']], { worksheetTitle: TITLE, range: `Second!A1` }));
+      expect(error.message).to.equal(`range "Second!A1" targets worksheet "Second" but worksheetTitle is "${TITLE}"`);
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('');
+    });
+
+    it('2.2.x: an unquoted range worksheet resolves to the remembered sheet but writes where the range says', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      await gsheet.updateData([['landed']], { range: `Second!A1` });
+      // the write follows getRange, which returns the range untouched
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('landed');
+      // and Sheet1, the sheet the call resolved to, is neither written to nor grown
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('');
+      expect(fake.worksheet(SPREADSHEET_ID, TITLE).rowCount).to.equal(1000);
+
+      const fresh = new GoogleSheet(SPREADSHEET_ID);
+      await fresh.authorize(fake.credentials);
+      const error = await rejection(() => fresh.updateData([['x']], { range: `Second!A1` }));
+      expect(error).to.equal('Specify worksheetTitle');
     });
 
     it('honors valueInputOption', async () => {
