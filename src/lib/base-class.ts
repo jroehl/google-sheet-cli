@@ -1,6 +1,9 @@
-import { Args, Command, Flags, ux } from '@oclif/core';
-import { ArgOutput, FlagInput, FlagOutput } from '@oclif/core/lib/interfaces/parser';
+import { Args, Command, Flags } from '@oclif/core';
+import { FlagInput } from '@oclif/core/interfaces';
+import { ux } from '@oclif/core/ux';
+import { createInterface } from 'readline';
 import { normalizeCredentials } from './credentials';
+import * as factory from './factory';
 import GoogleSheet, { GoogleSheetCli } from './google-sheet';
 
 export const spreadsheetId = Flags.string({
@@ -28,25 +31,57 @@ export const valueInputOption = Flags.string({
 
 export const data = Args.string({
   name: 'data',
-  type: 'string',
   description: 'The data to be used as a JSON string - nested array [["1", "2", "3"]]',
   required: true,
-  env: 'DATA',
 });
 
 interface CommonFlags {
-  rawOutput: boolean;
+  rawOutput: boolean | undefined;
   clientEmail: string | undefined;
   privateKey: string | undefined;
   credentialsFile: string | undefined;
   help: void;
 }
 
+// `@oclif/core/interfaces` re-exports `FlagInput` but not these two, and node16 resolution
+// refuses the deep path they live behind. Both are index signatures in core itself.
+type FlagOutput = { [name: string]: any };
+type ArgOutput = { [name: string]: any };
+
+/**
+ * Ask for one secret on the terminal without echoing it back.
+ *
+ * `@oclif/core` 2 had `ux.prompt(message, { type: 'hide' })` for this; core 5 dropped the whole
+ * prompt module along with its `password-prompt` dependency, so the same "print the label, read a
+ * line, echo nothing" contract is kept here rather than taking a new runtime dependency for it.
+ *
+ * @param {string} message
+ * @returns {Promise<string>}
+ */
+const hiddenPrompt = (message: string): Promise<string> =>
+  new Promise((resolve) => {
+    const output = process.stdout;
+    const write = output.write.bind(output);
+    let muted = false;
+    // readline echoes what is typed; swallow those writes until the answer is in
+    (output as any).write = (chunk: any, ...rest: any[]) => (muted ? true : write(chunk, ...rest));
+
+    const rl = createInterface({ input: process.stdin, output, terminal: true });
+    rl.question(`${message}: `, (answer) => {
+      muted = false;
+      (output as any).write = write;
+      write('\n');
+      rl.close();
+      resolve(answer.trim());
+    });
+    muted = true;
+  });
+
 export default abstract class extends Command {
   private rawLogs: boolean = false;
   public gsheet!: GoogleSheet;
 
-  static flags: FlagInput<CommonFlags> = {
+  static flags = {
     help: Flags.help({ char: 'h' }),
     rawOutput: Flags.boolean({
       char: 'r',
@@ -76,7 +111,7 @@ export default abstract class extends Command {
         'Path to the service account JSON file to read the credentials from. Uses the GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey flags take precedence.',
       required: false,
     }),
-  };
+  } as FlagInput<CommonFlags>;
 
   async start(message: string) {
     if (!this.rawLogs) {
@@ -110,10 +145,10 @@ export default abstract class extends Command {
       credentialsFile: flags?.credentialsFile,
     });
 
-    const gsheet = new GoogleSheet();
+    const gsheet = factory.createGoogleSheet();
     await gsheet.authorize({
-      client_email: credentials.client_email ?? (await ux.prompt('What is your client email?', { type: 'hide' })),
-      private_key: credentials.private_key ?? (await ux.prompt('What is your private key?', { type: 'hide' })),
+      client_email: credentials.client_email ?? (await hiddenPrompt('What is your client email?')),
+      private_key: credentials.private_key ?? (await hiddenPrompt('What is your private key?')),
     });
 
     this.gsheet = gsheet;

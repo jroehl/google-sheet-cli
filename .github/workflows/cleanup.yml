@@ -24,7 +24,7 @@ jobs:
       - name: ci
         run: npm ci
 
-      # clear-testsheet.sh drives ./bin/run, which resolves its commands from the gitignored lib/.
+      # clear-testsheet.sh drives ./bin/run.js, which resolves its commands from the gitignored lib/.
       # `npm ci` only fires the husky prepare script, so without this the cron exits 2 with
       # "command spreadsheet:get not found" and nothing is ever cleaned up.
       - name: build

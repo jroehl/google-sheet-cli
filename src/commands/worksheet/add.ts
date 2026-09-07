@@ -26,6 +26,8 @@ Worksheet "<worksheetTitle>" (<id>) successfully created
     if (!worksheet) throw new Error('Worksheet not created');
     const { properties: { title = '', sheetId = '' } = {} } = worksheet;
     this.stop();
-    this.logRaw(`Worksheet "${title}" (${sheetId}) successfully created`, { operation: this.id, ...worksheet });
+    const result = { operation: this.id, ...worksheet };
+    this.logRaw(`Worksheet "${title}" (${sheetId}) successfully created`, result);
+    return result;
   }
 }

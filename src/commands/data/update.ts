@@ -42,12 +42,14 @@ Data successfully updated in "<worksheetTitle>"
 
       await this.gsheet.updateData(parsed, options, spreadsheetId);
       this.stop();
-      this.logRaw(`Data successfully updated in "${worksheetTitle}"`, { operation: this.id, worksheetTitle, data: parsed });
+      const result = { operation: this.id, worksheetTitle, data: parsed };
+      this.logRaw(`Data successfully updated in "${worksheetTitle}"`, result);
+      return result;
     } catch (error) {
       if (error instanceof SyntaxError) {
-        throw `"data" input has to be valid JSON (${error.message || error})`;
+        throw new Error(`"data" input has to be valid JSON (${error.message || error})`);
       }
-      throw (error as Error).message || error;
+      throw error;
     }
   }
 }

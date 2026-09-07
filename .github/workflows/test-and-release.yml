@@ -23,7 +23,7 @@ jobs:
       # Pull requests get the offline suite across the supported range. A push runs the live
       # suite, which talks to the one shared test spreadsheet and must not be parallelised.
       matrix:
-        node: ${{ github.event_name == 'pull_request' && fromJSON('[18, 20, 24]') || fromJSON('[18]') }}
+        node: ${{ github.event_name == 'pull_request' && fromJSON('[22, 24]') || fromJSON('[24]') }}
     steps:
       - uses: actions/checkout@v3
 
@@ -35,14 +35,13 @@ jobs:
       - name: ci
         run: npm ci
 
+      # 2.x needed NODE_OPTIONS=--no-experimental-strip-types here: mocha 10 imported the .ts
+      # specs as ES modules on Node 22.18 and later, bypassing ts-node's CommonJS hook, and
+      # @oclif/test 2 then died on `module.parent`. mocha 12 requires them through ts-node again
+      # and @oclif/test 5 no longer reads `module.parent`, so the flag is gone.
       - name: unit tests
         if: github.event_name == 'pull_request'
         run: npm run test:unit
-        env:
-          # Node 22.18 and later strip types and load the .ts specs as ES modules, so mocha never
-          # falls back to ts-node's CommonJS hook and @oclif/test dies on `module.parent`. Until
-          # the toolchain moves off ts-node, keep type stripping off on those versions.
-          NODE_OPTIONS: ${{ matrix.node >= 22 && '--no-experimental-strip-types' || '' }}
 
       - name: Configure 1Password Service Account
         if: github.event_name == 'push'
@@ -79,7 +78,7 @@ jobs:
           GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
           TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
 
-      # bin/clear-testsheet.sh drives ./bin/run, which resolves its commands from lib/. lib/ is
+      # bin/clear-testsheet.sh drives ./bin/run.js, which resolves its commands from lib/. lib/ is
       # gitignored and `npm ci` only fires the husky prepare script, so without this the next step
       # exits 2 with "command spreadsheet:get not found", takes the whole job down under
       # `set -euo pipefail`, and publish never runs.

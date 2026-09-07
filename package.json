@@ -3,34 +3,37 @@
   "description": "A simple helper cli to interact with google sheets.",
   "version": "0.0.0",
   "bin": {
-    "google-sheet": "./bin/run"
+    "google-sheet": "./bin/run.js"
   },
   "bugs": "https://github.com/jroehl/google-sheet-cli/issues",
   "dependencies": {
-    "@oclif/core": "^2.8.5",
-    "@oclif/plugin-help": "^5.2.9",
+    "@oclif/core": "^5.0.0",
+    "@oclif/plugin-help": "^7.0.0",
+    "chalk": "^4.1.2",
     "googleapis": "^118.0.0",
-    "lodash.get": "^4.4.2",
-    "oclif": "^3.9.0",
-    "semantic-release": "^21.0.2",
+    "js-yaml": "^3.14.1",
+    "natural-orderby": "^2.0.3",
+    "string-width": "^4.2.3",
     "tslib": "^2.5.2"
   },
   "devDependencies": {
-    "@oclif/test": "^2.3.21",
+    "@oclif/test": "^5.0.0",
     "@types/chai": "^4.3.5",
-    "@types/lodash.get": "^4.4.7",
+    "@types/js-yaml": "^3.12.10",
     "@types/mocha": "^10.0.1",
-    "@types/node": "^20.2.3",
+    "@types/node": "^24.0.0",
     "chai": "^4.3.7",
     "husky": "^9.0.10",
-    "mocha": "^10.2.0",
+    "mocha": "^12.0.0",
     "nyc": "^15.1.0",
+    "oclif": "^5.0.0",
+    "semantic-release": "^25.0.0",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.9.0"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=22"
   },
   "files": [
     "/bin",
@@ -71,8 +74,8 @@
     "postpack": "rm -f oclif.manifest.json",
     "version": "oclif readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
     "prepack": "npm run build && oclif manifest && oclif readme --multi",
-    "test": "nyc mocha \"test/**/*.test.ts\"",
-    "test:unit": "mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 --forbid-only --ignore test/google-sheet.test.ts \"test/*.test.ts\"",
+    "test": "TS_NODE_PROJECT=test/tsconfig.json nyc mocha \"test/**/*.test.ts\"",
+    "test:unit": "TS_NODE_PROJECT=test/tsconfig.json mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 --forbid-only --ignore test/google-sheet.test.ts \"test/*.test.ts\"",
     "semantic-release": "semantic-release",
     "prepare": "husky",
     "cleanup": "bin/clear-testsheet.sh"

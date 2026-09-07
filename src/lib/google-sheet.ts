@@ -1,5 +1,4 @@
 import { google, sheets_v4 } from 'googleapis';
-import get from 'lodash.get';
 import { CredentialsInput, normalizeCredentials } from './credentials';
 import { log } from './log';
 import { colToA, getLongestArray, getRange, parseRange, rangeWorksheet, requiredGrid } from './utils';
@@ -115,7 +114,7 @@ export default class GoogleSheet {
     const sheet = sheets.find(({ properties: { title: ws } = {} }) => ws === title);
     if (!sheet) throw `Sheet "${title}" not found in "${ssTitle}"`;
 
-    this.worksheetTitle = get(sheet, 'properties.title');
+    this.worksheetTitle = sheet?.properties?.title;
     return sheet;
   }
 
@@ -170,8 +169,8 @@ export default class GoogleSheet {
       range: getRange(sanitizedOptions),
     });
 
-    const range = get(res, 'data.range');
-    let values = get(res, 'data.values');
+    const range = res.data.range;
+    let values = res.data.values;
 
     let header: string[] = [];
     if (sanitizedOptions.hasHeaderRow) {
@@ -188,7 +187,7 @@ export default class GoogleSheet {
             range: undefined,
           }),
         });
-        [header] = get(res, 'data.values', [[]]);
+        [header] = res.data.values ?? [[]];
         if (!header.length) throw 'No header row exists';
       }
     }
@@ -361,8 +360,8 @@ export default class GoogleSheet {
         ],
       },
     });
-    const sheet = get(response, 'data.replies[0].addSheet');
-    this.worksheetTitle = get(sheet, 'properties.title');
+    const sheet = response.data.replies?.[0]?.addSheet;
+    this.worksheetTitle = sheet?.properties?.title;
     return sheet;
   }
 
