@@ -21,7 +21,7 @@ $ npm install -g google-sheet-cli@v2
 $ npx google-sheet-cli@v2 spreadsheet:get -s <spreadsheetId>
 ```
 
-It is maintained on the `2.x` branch and gets fixes, not features.
+A `2.x` maintenance branch is being cut for it; from then on that line gets fixes, not features.
 
 ### The bin scripts are `bin/run.js` and `bin/dev.js`
 
@@ -97,6 +97,8 @@ On every Sheets call:
 3.x   Accept: */*
 ```
 
+That is the header getting looser, not stricter, so nothing starts refusing to answer. What it can break is something in the middle that was matching on `application/json` — a proxy rule, a request filter, a recorded-cassette test fixture.
+
 On the token request:
 
 ```
@@ -143,7 +145,7 @@ These arrived in 2.3.0, not in 3.0.0, so they are new only to someone upgrading 
 - Every command, flag, short character, default and argument. `data:get`'s eight table flags (`--columns`, `--sort`, `--filter`, `--csv`, `--output`, `-x/--extended`, `--no-truncate`, `--no-header`) all survive, rendering the same table.
 - The Sheets requests each library method makes, down to the query string and the body.
 - Authentication itself: service accounts, the same three ways of handing over credentials, the same `GSHEET_*` environment variables.
-- A `range` that names a different worksheet than `worksheetTitle` still warns on stderr and writes to the worksheet the range names, exactly as 2.2.x and 2.3.0 do.
+- A `range` that names a different worksheet than `worksheetTitle` still warns on stderr and writes to the worksheet the range names, exactly as 2.2.x and 2.3.0 do. 3.0.0 deliberately does not turn that warning into a refusal.
 
 ## Changes in 2.3.0
 
@@ -151,7 +153,7 @@ These arrived in 2.3.0, not in 3.0.0, so they are new only to someone upgrading 
 - Unusable service account credentials are rejected before the first request, with a message that names the fix instead of an OpenSSL parser error.
 - The new `--credentialsFile` flag reads the credentials straight out of the service account JSON file. See [Credentials](#credentials).
 - Writing past the last row or column of a worksheet now grows the grid first instead of failing with "exceeds grid limits", so appending to a sheet that is already full works again.
-- A `range` naming a different worksheet than `worksheetTitle` still writes to the worksheet the range names, exactly as 2.2.x did, but now says so on stderr instead of resolving the contradiction silently. Refusing the call outright is held for 3.0.0.
+- A `range` naming a different worksheet than `worksheetTitle` still writes to the worksheet the range names, exactly as 2.2.x did, but now says so on stderr instead of resolving the contradiction silently. It is still a warning on 3.0.0 and there is no plan to make it a refusal in that release: refusing would break a call every 2.x version completed, which is a different kind of change from the platform moves 3.0.0 is made of.
 - `updateData` now accepts a `range` carrying a quoted worksheet title with no `worksheetTitle` beside it, taking the worksheet from the range instead of insisting on a title the range already named. As in 2.2.x, an unquoted title inside a range does not name the worksheet.
 - A write now re-points the worksheet a `GoogleSheet` instance remembers. `updateData` resolves and fetches its target worksheet before writing, and that worksheet becomes the one a later command uses when it omits `worksheetTitle`. Before 2.3.0 only a read moved it. This is only visible when several commands share one instance, which is what the GitHub action does.
 - A write that sizes a grid costs one extra API read. Growing the grid means knowing how big it is, so `updateData` fetches the spreadsheet before the update, plus one more request when the grid actually has to grow. The one write that reads nothing extra is an unquoted `range` naming a worksheet other than the one the call resolves to, where nothing is sized because nothing there is written to.

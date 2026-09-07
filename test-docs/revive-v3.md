@@ -560,12 +560,21 @@ grid that grows is the one the write lands in — and a caller whose explicit `w
 a sheet that does not exist is no longer refused by the extra `getWorksheet` read either, which is
 another way the refusal could have failed a call 2.2.0 completed.
 
-**For 3.0.0**, restore the throw. The message and the exact condition are the ones above; it is a
-breaking change, it belongs in a major, and it wants a release note telling callers to drop one of
-the two values. Pinned meanwhile by `2.2.x: an unquoted range worksheet that contradicts the
-explicit title is written to, with a warning` in `test/regression.test.ts` and by
-`warns, then writes to the range worksheet, when it contradicts worksheetTitle` in
-`test/grid-growth.test.ts`.
+**For 3.0.0** this paragraph originally said "restore the throw", and that was looser wording than
+it should have been: it read as a promise rather than an option. **Decided in Step 16: the warning
+stays in 3.0.0 and the throw is not restored.** The reasoning that made it a warning in the first
+place has not changed — 2.2.x wrote to the sheet the range named, and refusing that call is a
+behavioural break. Every other breaking change in 3.0.0 is a platform change: the Node floor, the
+bin paths, the error types, the oclif upgrade. Folding a behavioural refusal into the same release
+blurs what the major is about and hands a user two unrelated reasons to be broken at once. The
+warning already puts the contradiction in front of them; a later release can turn it into a refusal
+once it has been in the wild for a while.
+
+Pinned by `2.2.x: an unquoted range worksheet that contradicts the explicit title is written to,
+with a warning` in `test/regression.test.ts` and by `warns, then writes to the range worksheet, when
+it contradicts worksheetTitle` in `test/grid-growth.test.ts`. Those two are the tripwire: whoever
+eventually makes it a refusal has to change them deliberately, which is the point. The README's
+"Changes in 2.3.0" section and its migration notes both say the warning is what 3.0.0 does.
 
 ## Final review — two live assertions are discovery tests, on purpose
 
@@ -819,6 +828,11 @@ naming only `www.googleapis.com` has to gain `oauth2.googleapis.com`, or the fir
 fails and nothing else runs. `sheets.googleapis.com` is unchanged. Both halves are in the README's
 migration section.
 
+Note the direction of the `Accept` change on the Sheets call: `application/json` → `*/*` is the
+header getting **looser**, so nothing upstream starts refusing to answer. What it can break is
+something in the middle that was matching on the old value — a proxy rule, a request filter, a
+recorded-cassette fixture. The README says so in that direction rather than just printing the pair.
+
 **The scope and who has to re-grant it.** `https://spreadsheets.google.com/feeds/` (the retired
 Sheets v3 feed scope, which v4 still accepted for a service account minting its own token) became
 `https://www.googleapis.com/auth/spreadsheets`. A service account that was shared onto a
@@ -942,12 +956,19 @@ to do — is true from the first second.
    npx --package=node@20 --package=google-sheet-cli@v2 -- google-sheet --help
    ```
 
-7. **Cut the `2.x` maintenance branch.** The branch, its `.releaserc`, the workflow trigger it
-   inherits and the `semantic-release --dry-run` that gates it are written out verbatim in
-   *Step 13 — the `2.x` maintenance branch* above. Do not add that `.releaserc` before master is on
-   3.0.0: declaring a `2.x` maintenance range while master is still 2.x is the `EMAINTENANCEBRANCH`
-   failure Step 7 avoided. Until this step is done, the README's "maintained on the `2.x` branch"
-   is a promise rather than a fact.
+7. **Cut the `2.x` maintenance branch.** Two halves with different preconditions, and it is worth
+   not confusing them:
+
+   - **The branch itself** — `git branch 2.x v2.3.0` — needs only the `v2.3.0` tag, so it can be cut
+     any time after step 1. Doing it early is harmless and gives fixes somewhere to land.
+   - **Its release configuration** — the `.releaserc` naming the `2.x` maintenance range — must wait
+     until master is on 3.0.0, i.e. after step 5. Declaring a `2.x` maintenance range while master
+     is still 2.x is the `EMAINTENANCEBRANCH` failure Step 7 avoided.
+
+   Both halves, the workflow trigger the branch inherits and the `semantic-release --dry-run` that
+   gates the configuration are written out verbatim in *Step 13 — the `2.x` maintenance branch*
+   above. Until the branch exists, the README says a `2.x` branch "is being cut" rather than
+   claiming it is there.
 
 8. **Provenance is a follow-up.** `id-token: write` on the publish job and `NPM_CONFIG_PROVENANCE=true`
    land as their own pull request *after* 3.0.0 is on npm, so that a provenance misconfiguration
