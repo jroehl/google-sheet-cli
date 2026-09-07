@@ -62,13 +62,30 @@ credentials were used and none are committed.
 ```sh
 npm run test:unit
 # mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 test/credentials.test.ts
-# → 15 passing (11ms)
+# → 21 passing (9ms)
 ```
 
 `--no-config` is load-bearing. `.mocharc.json` sets `"file": "test/commands/hooks.test.ts"`, which
 authorizes against the live spreadsheet; dropping the flag pulls that file in and both hooks fail
 offline. Anyone extending this script must keep naming test files explicitly — `--no-config` also
 discards `extension` and `recursive`, so a bare directory glob will not work.
+
+### Both PKCS#8 and PKCS#1 keys are accepted
+
+Google only ever writes a PKCS#8 key (`-----BEGIN PRIVATE KEY-----`) into the service account JSON,
+but a key someone converted to PKCS#1 (`-----BEGIN RSA PRIVATE KEY-----`) authenticates just as
+well, and one may already be sitting in a GitHub secret that the action passes straight to
+`authorize`. An earlier revision of this step checked for the literal PKCS#8 marker and would have
+rejected such a key — `grep -c -- "-----BEGIN PRIVATE KEY-----"` on a PKCS#1 PEM is 0 — while
+telling the user to copy the value verbatim, which they had. 2.3.0 must not narrow what already
+works, so the marker check now matches any `BEGIN ... PRIVATE KEY` header and `createPrivateKey`
+plus `asymmetricKeyType === 'rsa'` is the real gate.
+
+What that leaves rejected, with the friendly BEGIN/END message: a `private_key_id` pasted by
+mistake, and a bare base64 body with no PEM lines. What it leaves rejected with the RSA-key message:
+an EC key, a truncated body, and a passphrase-protected PEM — the last one reaching
+`createPrivateKey` and failing there rather than at the marker check, with the OpenSSL text staying
+behind the debug channel. All six cases are covered by tests.
 
 ### The brief's three verify lines
 
@@ -77,6 +94,7 @@ discards `extension` and `recursive`, so a bare directory glob will not work.
 | `./bin/run spreadsheet:get -s X -c a@b.iam.gserviceaccount.com -p "not-a-key"` | 1 | `Error: private_key must be the full PEM private_key from the service account JSON, including the BEGIN and END lines` | 0 |
 | same, with a PEM whose base64 body is truncated | 1 | `Error: private_key is not a valid service account RSA key. Copy the private_key value verbatim from the service account JSON; run with DEBUG=gsheet:credentials for the parser error` | 0 |
 | `./bin/run spreadsheet:get -s <id> -f service-account.json` | 1 | `Fetching spreadsheet...` then `Error: invalid_grant: Invalid grant: account not found` / `Code: 400` | 0 |
+| the same with a PKCS#1 (`BEGIN RSA PRIVATE KEY`) key in the JSON file | 1 | identical — `Error: invalid_grant: Invalid grant: account not found` / `Code: 400` | 0 |
 
 The third line is the one that matters for the file path: local validation passed, the CLI signed a
 JWT with the key it read out of the JSON file and sent it to Google, and Google rejected the

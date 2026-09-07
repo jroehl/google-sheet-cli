@@ -99,7 +99,9 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...
 -----END PRIVATE KEY-----
 ```
 
-Escaped newlines (`\n`) and surrounding quotes are taken care of, so the value can be pasted straight out of the JSON file or out of a CI secret. Note that the `private_key_id` is a different field and will not work. A key that is truncated or damaged is rejected before any request is made; run with `DEBUG=gsheet:credentials` to see the parser error behind the rejection.
+Escaped newlines (`\n`) and surrounding quotes are taken care of, so the value can be pasted straight out of the JSON file or out of a CI secret. A key converted to the older `BEGIN RSA PRIVATE KEY` (PKCS#1) form is accepted as well. Note that the `private_key_id` is a different field and will not work. A key that is truncated or damaged is rejected before any request is made; run with `DEBUG=gsheet:credentials` to see the parser error behind the rejection.
+
+For anything scripted, hand the key over with `--credentialsFile` or the environment variables rather than piping it into the prompt. The prompt strips backslashes when its input is not a terminal, which turns the escaped newlines into stray `n` characters and makes a perfectly good key look broken.
 
 ## Build with
 
