@@ -3,8 +3,12 @@ import { readFileSync } from 'fs';
 
 const DEBUG_NAMESPACE = 'gsheet:credentials';
 
-const BEGIN_LINE = '-----BEGIN PRIVATE KEY-----';
-const END_LINE = '-----END PRIVATE KEY-----';
+// Google only ever puts a PKCS#8 key in the service account JSON, but a key someone converted to
+// PKCS#1 authenticates just as well, so createPrivateKey below is the real gate. These markers only
+// catch input that is no kind of PEM at all - a key id, a bare base64 body - and say so in plainer
+// words than the parser would.
+const BEGIN_LINE = /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/;
+const END_LINE = /-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----/;
 
 const MISSING_PEM_LINES = 'private_key must be the full PEM private_key from the service account JSON, including the BEGIN and END lines';
 const NOT_AN_RSA_KEY =
@@ -88,7 +92,7 @@ const normalizePrivateKey = (value: string): string => {
   // A key pasted into an env variable or a JSON string keeps its newlines escaped.
   const pem = `${unquote(value).replace(/\\n/g, '\n').trim()}\n`;
 
-  if (!pem.includes(BEGIN_LINE) || !pem.includes(END_LINE)) {
+  if (!BEGIN_LINE.test(pem) || !END_LINE.test(pem)) {
     throw new Error(MISSING_PEM_LINES);
   }
 
@@ -117,7 +121,8 @@ const normalizePrivateKey = (value: string): string => {
  * @returns {NormalizedCredentials}
  */
 export const normalizeCredentials = (input: CredentialsInput = {}): NormalizedCredentials => {
-  const file = input.credentialsFile ? readCredentialsFile(input.credentialsFile) : {};
+  const credentialsFile = clean(input.credentialsFile);
+  const file = credentialsFile ? readCredentialsFile(credentialsFile) : {};
 
   const client_email = clean(input.client_email) ?? clean(file.client_email);
   const private_key = clean(input.private_key) ?? clean(file.private_key);
