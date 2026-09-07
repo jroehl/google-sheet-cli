@@ -19,6 +19,10 @@ const MAX_AGE_MS = 60 * 60 * 1000;
 // Never touched, whatever else the rules say. The cron's own marker worksheet.
 const PROTECTED_TITLES = ['[automated_testing]'];
 
+// Google keeps a title's spacing and case, and a person retyping the marker will not. Compare the
+// protected list the way a person means it, not the way it happens to be spelled.
+const normalise = (title) => title.trim().toLowerCase();
+
 /**
  * `test/commands/helper.ts` builds every worksheet title as
  * `<prefix><Date.now()>_<base36 random>`, occasionally with a `_ro`/`_up` variant suffix. The
@@ -30,21 +34,20 @@ const CLI_TITLE = /^(?:data_append_|data_update_|data_get_|worksheet_[a-z]+_|lib
 /** The action repository names its e2e worksheets `gsheet.action_e2e_$(date +%s)_<sha>`. */
 const ACTION_TITLE = /^gsheet\.action_e2e_(\d+)_[A-Za-z0-9]+$/;
 
+/**
+ * The unit belongs to the owner, not to the digit count. `Date.now()` is always 13 digits and
+ * `date +%s` always 10, so a 10-digit number behind a CLI prefix was not written by the CLI —
+ * and 10 digits in the 2001-2026 window is exactly the shape of an id a person or another tool
+ * would pick. Reading it as seconds anyway would be deletion surface bought for nothing.
+ */
 const OWNERS = [
-  { owner: 'google-sheet-cli', pattern: CLI_TITLE },
-  { owner: 'gsheet.action', pattern: ACTION_TITLE },
+  { owner: 'google-sheet-cli', pattern: CLI_TITLE, unit: 'ms', digits: 13 },
+  { owner: 'gsheet.action', pattern: ACTION_TITLE, unit: 's', digits: 10 },
 ];
 
-/**
- * The two repositories stamp different units, so the digit count is the only thing that says
- * which one we are looking at: 13 digits has been milliseconds since 2001 and stays so until
- * 2286, 10 digits is the same window in seconds. Any other length is a number we cannot place,
- * and guessing at it is exactly the mistake that loses data.
- */
-const readEpoch = (digits) => {
-  if (digits.length === 13) return { ms: Number(digits), unit: 'ms' };
-  if (digits.length === 10) return { ms: Number(digits) * 1000, unit: 's' };
-  return null;
+const readEpoch = (digits, owner) => {
+  if (digits.length !== owner.digits) return null;
+  return owner.unit === 'ms' ? Number(digits) : Number(digits) * 1000;
 };
 
 const formatAge = (ms) => {
@@ -62,16 +65,18 @@ const classify = (title, now) => {
   const preserve = (reason) => ({ title, decision: 'PRESERVE', reason });
 
   if (typeof title !== 'string' || title === '') return preserve('unreadable-title');
-  if (PROTECTED_TITLES.includes(title)) return preserve('protected');
+  if (PROTECTED_TITLES.some((protectedTitle) => normalise(protectedTitle) === normalise(title))) return preserve('protected');
 
-  const match = OWNERS.map(({ owner, pattern }) => ({ owner, found: pattern.exec(title) })).find(({ found }) => found);
+  const match = OWNERS.map((owner) => ({ owner, found: owner.pattern.exec(title) })).find(({ found }) => found);
   if (!match) return preserve('unowned');
 
-  const epoch = readEpoch(match.found[1]);
-  if (!epoch) return preserve(`malformed-epoch owner=${match.owner} digits=${match.found[1].length}`);
+  const { owner } = match;
+  const digits = match.found[1];
+  const epochMs = readEpoch(digits, owner);
+  if (epochMs === null) return preserve(`malformed-epoch owner=${owner.owner} expected=${owner.digits} digits=${digits.length}`);
 
-  const age = now - epoch.ms;
-  const detail = `owner=${match.owner} unit=${epoch.unit} age=${formatAge(age)}`;
+  const age = now - epochMs;
+  const detail = `owner=${owner.owner} unit=${owner.unit} age=${formatAge(age)}`;
   if (age < MAX_AGE_MS) return preserve(`too-young ${detail}`);
 
   return { title, decision: 'DELETE', reason: `expired ${detail}` };

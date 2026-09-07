@@ -38,6 +38,11 @@ jobs:
       - name: unit tests
         if: github.event_name == 'pull_request'
         run: npm run test:unit
+        env:
+          # Node 22.18 and later strip types and load the .ts specs as ES modules, so mocha never
+          # falls back to ts-node's CommonJS hook and @oclif/test dies on `module.parent`. Until
+          # the toolchain moves off ts-node, keep type stripping off on those versions.
+          NODE_OPTIONS: ${{ matrix.node >= 22 && '--no-experimental-strip-types' || '' }}
 
       - name: Configure 1Password Service Account
         if: github.event_name == 'push'
@@ -60,8 +65,9 @@ jobs:
       # message; say so here instead.
       - name: assert secrets
         if: github.event_name == 'push'
-        run: test -n "$TEST_SPREADSHEET_ID" && test -n "$GSHEET_PRIVATE_KEY"
+        run: test -n "$TEST_SPREADSHEET_ID" && test -n "$GSHEET_PRIVATE_KEY" && test -n "$GSHEET_CLIENT_EMAIL"
         env:
+          GSHEET_CLIENT_EMAIL: ${{ env.GSHEET_CLIENT_EMAIL }}
           GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
           TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
 

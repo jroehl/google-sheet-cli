@@ -50,6 +50,11 @@ describe('cleanup classifier', () => {
     it('never deletes the marker worksheet', () => {
       expectPreserved('[automated_testing]', 'protected');
     });
+
+    it('never deletes it when someone retyped its spacing or case', () => {
+      expectPreserved('  [automated_testing]  ', 'protected');
+      expectPreserved('[Automated_Testing]', 'protected');
+    });
   });
 
   describe('titles nobody here created', () => {
@@ -77,6 +82,10 @@ describe('cleanup classifier', () => {
       expectPreserved(`data_get_${msAgo(600)}`, 'unowned');
     });
 
+    it('preserves an owned prefix that a leading space detaches from the pattern', () => {
+      expectPreserved(` data_get_${msAgo(600)}_abc123def`, 'unowned');
+    });
+
     it('preserves an empty title', () => {
       expectPreserved('', 'unreadable-title');
     });
@@ -101,6 +110,17 @@ describe('cleanup classifier', () => {
 
     it('preserves a year a human typed', () => {
       expectPreserved('lib_2024_budget', 'malformed-epoch');
+    });
+
+    // The unit belongs to the owner. Neither generator can produce the two combinations below,
+    // and a ten digit id behind a CLI prefix is exactly what a person or another tool would write.
+    it('preserves seconds behind a CLI prefix, which the CLI never stamps', () => {
+      expectPreserved(`lib_${secAgo(360)}_abc123def`, 'malformed-epoch');
+      expectPreserved('data_get_1000000000_abc123def', 'malformed-epoch');
+    });
+
+    it('preserves milliseconds behind the action prefix, which the action never stamps', () => {
+      expectPreserved(`gsheet.action_e2e_${msAgo(360)}_deadbee`, 'malformed-epoch');
     });
   });
 
@@ -167,6 +187,7 @@ describe('cleanup classifier', () => {
         'Q3 revenue forecast',
         'Onboarding checklist (do not delete)',
         'lib_2024_budget',
+        `lib_${secAgo(360)}_abc123def`,
         `data_append_${msAgo(360)}_abc123def`,
         `gsheet.action_e2e_${secAgo(5)}_deadbee`,
         `gsheet.action_e2e_${secAgo(900)}_cafe123`,

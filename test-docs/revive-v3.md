@@ -466,3 +466,64 @@ Two deliberate asymmetries in that table:
 
 All six rows are pinned in `test/regression.test.ts`, each labelled with the 2.2.x behaviour it
 preserves.
+
+## Step 7 — safe cleanup, offline `test:unit`, CI rework
+
+### Deferred: the `2.x` branch configuration
+
+The workflow now triggers on pushes to `2.x` and `publish` accepts `refs/heads/2.x`, so the
+maintenance branch is releasable the moment someone cuts it. What is deliberately **not** here is a
+semantic-release `branches` configuration naming `2.x`.
+
+The repository has no release config at all, so semantic-release uses its defaults, and the default
+list already matches `2.x` through the maintenance pattern `+([0-9])?(.{+([0-9]),x}).x`. Declaring
+`2.x` explicitly before master has moved past 2.x risks `EMAINTENANCEBRANCH` — semantic-release
+refuses a maintenance branch whose range is not below the release branch's — and that failure would
+take the 2.3.0 release down with it. Shipping 2.3.0 is the priority.
+
+So: the `branches` configuration belongs to the task that actually cuts `2.x`, once master is on
+3.0.0. The gate for it is a `semantic-release --dry-run` on the `2.x` branch printing the version it
+would publish, not a green workflow run.
+
+### Node 22.18+ cannot run the offline suite without `--no-experimental-strip-types`
+
+Verified locally against the real suite, credentials unset:
+
+```
+node v20.11.1                                     → 155 passing, 0 failing
+node v22.18.0                                     → fails to start
+node v22.22.0                                     → fails to start
+node v24.11.1                                     → fails to start
+node v22.22.0 --no-experimental-strip-types       → 155 passing, 0 failing
+node v24.11.1 --no-experimental-strip-types       → 155 passing, 0 failing
+```
+
+The failure is not ours and not new: the same crash reproduces with the `test:unit` command exactly
+as it stood before this step.
+
+```
+TypeError: Cannot read properties of undefined (reading 'filename')
+    at Object.<anonymous> (node_modules/@oclif/test/lib/index.js:14:47)
+    ...
+    at async formattedImport (node_modules/mocha/lib/nodejs/esm-utils.js:9:14)
+```
+
+Cause: mocha 10 always tries `import()` on a spec file first and only falls back to `require` when
+Node answers `ERR_UNKNOWN_FILE_EXTENSION`. Node 18 and 20 do answer that for a `.ts` file, so
+`ts-node/register`'s CommonJS hook gets its turn. Node 22.18 and later strip types and load the file
+as a real ES module instead, so `import()` succeeds, ts-node never runs, and the first CommonJS
+dependency that inspects `module.parent` — `@oclif/test@2` on its line 14 — gets `undefined`.
+Removing `@oclif/test` from the picture only moves the failure one step: the ES-module spec then
+dies on `require is not defined in ES module scope`.
+
+`--no-experimental-strip-types` puts the old behaviour back, and the workflow sets it through
+`NODE_OPTIONS` on the matrix legs at Node 22 or newer only — Node 20 rejects the flag outright
+(`bad option`), so it cannot be set unconditionally. Anyone running `npm run test:unit` locally on
+Node 22+ needs the same flag until the toolchain moves off `ts-node` (`@oclif/test` 3+, or a
+compile step before mocha).
+
+Node 18 itself could not be exercised on this machine: it is not installed, and `mise install
+node@18` is blocked by the sandbox network allowlist (`deny network-outbound nodejs.org:443`). Node
+18 predates type stripping entirely, so it takes the same `ERR_UNKNOWN_FILE_EXTENSION` → `require`
+path as Node 20, which passes — but that is an argument, not a run. The Node 18 leg is first
+verified by CI.
