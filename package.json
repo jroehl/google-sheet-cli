@@ -7,10 +7,10 @@
   },
   "bugs": "https://github.com/jroehl/google-sheet-cli/issues",
   "dependencies": {
+    "@googleapis/sheets": "^14.0.0",
     "@oclif/core": "^5.0.0",
     "@oclif/plugin-help": "^7.0.0",
     "chalk": "^4.1.2",
-    "googleapis": "^118.0.0",
     "js-yaml": "^3.14.1",
     "natural-orderby": "^2.0.3",
     "string-width": "^4.2.3",

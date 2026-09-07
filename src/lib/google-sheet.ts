@@ -1,4 +1,4 @@
-import { google, sheets_v4 } from 'googleapis';
+import { auth, sheets, sheets_v4 } from '@googleapis/sheets';
 import { CredentialsInput, normalizeCredentials } from './credentials';
 import { log } from './log';
 import { colToA, getLongestArray, getRange, parseRange, rangeWorksheet, requiredGrid } from './utils';
@@ -39,7 +39,11 @@ export namespace GoogleSheetCli {
   }
 }
 
-const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
+// The Sheets API scope. 2.x asked for the retired Sheets v3 feed scope, which Google still
+// accepted for v4 calls; this is the scope the v4 API actually documents, and it covers every
+// call this class makes, `spreadsheets.create` included. Service account JWTs carry their scope
+// in the assertion rather than in a consent screen, so nothing has to be re-granted.
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
 const LOG_NAMESPACE = 'gsheet:sheets';
 
@@ -79,8 +83,8 @@ export default class GoogleSheet {
     if (!client_email) throw new Error('client_email is required to authorize');
     if (!private_key) throw new Error('private_key is required to authorize');
     // Create the JWT client
-    const auth = await google.auth.getClient({ credentials: { client_email, private_key }, scopes: [GOOGLE_FEED_URL] });
-    this.sheets = google.sheets({ version: 'v4', auth });
+    const client = new auth.JWT({ email: client_email, key: private_key, scopes: [SHEETS_SCOPE] });
+    this.sheets = sheets({ version: 'v4', auth: client });
   }
 
   /**
@@ -95,7 +99,6 @@ export default class GoogleSheet {
       spreadsheetId: spreadsheetId || this.spreadsheetId,
     });
 
-    this.sheets.spreadsheets.sheets;
     if (!sheet) throw `Spreadsheet "${spreadsheetId || this.spreadsheetId}" not found`;
     return sheet;
   }

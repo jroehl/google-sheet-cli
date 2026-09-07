@@ -19,7 +19,10 @@ const httpModule = require('http');
  * so a bug in the production parser cannot hide itself inside the fake.
  */
 
-const TOKEN_URL = 'https://www.googleapis.com/oauth2/v4/token';
+// Both OAuth token endpoints Google has served service-account assertions from: gtoken 5
+// (googleapis 118) posted to the first, gtoken 8 (@googleapis/sheets 14) posts to the second.
+// Accepting both keeps the fake honest about which one the client under test actually used.
+const TOKEN_URLS = ['https://www.googleapis.com/oauth2/v4/token', 'https://oauth2.googleapis.com/token'];
 const SHEETS_HOST = 'sheets.googleapis.com';
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -332,7 +335,16 @@ export class FakeSheets {
    * @returns {*}
    * @memberof FakeSheets
    */
-  private request(options: any, callback?: any): any {
+  private request(urlOrOptions: any, optionsOrCallback?: any, maybeCallback?: any): any {
+    // `http.request` has two documented signatures, `(options[, callback])` and
+    // `(url[, options][, callback])`. gaxios 5 (googleapis 118) used the first, gaxios 7
+    // (@googleapis/sheets 14) uses the second, so the fake has to take both or it silently
+    // stops intercepting whichever client it was not written against.
+    const fromUrl = typeof urlOrOptions === 'string' || urlOrOptions instanceof URL;
+    const base = fromUrl ? new URL(String(urlOrOptions)) : undefined;
+    const options: any = (fromUrl ? (typeof optionsOrCallback === 'function' ? undefined : optionsOrCallback) : urlOrOptions) || {};
+    const callback = [optionsOrCallback, maybeCallback].find((argument) => typeof argument === 'function');
+
     const req: any = new PassThrough();
     const chunks: Buffer[] = [];
     req.abort = () => undefined;
@@ -341,9 +353,10 @@ export class FakeSheets {
     req.setSocketKeepAlive = () => req;
     req.flushHeaders = () => undefined;
 
-    const protocol = options.protocol || 'https:';
-    const host = options.hostname || options.host || 'localhost';
-    const path = options.path || '/';
+    // Node merges the two: the URL supplies the defaults, an explicit option overrides it.
+    const protocol = options.protocol || base?.protocol || 'https:';
+    const host = options.hostname || options.host || base?.host || 'localhost';
+    const path = options.path || (base ? `${base.pathname}${base.search}` : '/');
     const url = `${protocol}//${host}${path}`;
     const method = (options.method || 'GET').toUpperCase();
 
@@ -386,7 +399,7 @@ export class FakeSheets {
     else if (raw) body = raw;
     this.requests.push({ method, url, body });
 
-    if (url.startsWith(TOKEN_URL)) {
+    if (TOKEN_URLS.some((tokenUrl) => url.startsWith(tokenUrl))) {
       return { status: 200, body: { access_token: 'fake-access-token', expires_in: 3600, token_type: 'Bearer' } };
     }
 

@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    // gtoken 8 is a dual package whose CommonJS types are named `.d.ts` inside a
+    // `"type": "module"` package, so TypeScript reads them as ESM and rejects the `require`
+    // google-auth-library does at runtime (TS1479). The require condition resolves fine in
+    // Node; the mistake is in gtoken's packaging, and nothing here can correct it.
+    "skipLibCheck": true,
     "declaration": true,
     "importHelpers": true,
     "module": "node16",
