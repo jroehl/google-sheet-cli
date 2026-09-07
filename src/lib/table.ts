@@ -9,7 +9,7 @@
  *
  * Derived from https://github.com/oclif/core/blob/v2.8.11/src/cli-ux/styled/table.ts
  *
- *   Copyright (c) 2020, Salesforce.com, Inc.
+ *   Copyright (c) 2018 Salesforce.com
  *
  *   Permission is hereby granted, free of charge, to any person obtaining a copy of this software
  *   and associated documentation files (the "Software"), to deal in the Software without

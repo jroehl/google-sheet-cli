@@ -19,7 +19,7 @@ const httpModule = require('http');
  * so a bug in the production parser cannot hide itself inside the fake.
  */
 
-// Both OAuth token endpoints Google has served service-account assertions from: gtoken 5
+// Both OAuth token endpoints Google has served service-account assertions from: gtoken 6
 // (googleapis 118) posted to the first, gtoken 8 (@googleapis/sheets 14) posts to the second.
 // Accepting both keeps the fake honest about which one the client under test actually used.
 const TOKEN_URLS = ['https://www.googleapis.com/oauth2/v4/token', 'https://oauth2.googleapis.com/token'];
