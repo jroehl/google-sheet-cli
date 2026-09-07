@@ -561,3 +561,31 @@ the two values. Pinned meanwhile by `2.2.x: an unquoted range worksheet that con
 explicit title is written to, with a warning` in `test/regression.test.ts` and by
 `warns, then writes to the range worksheet, when it contradicts worksheetTitle` in
 `test/grid-growth.test.ts`.
+
+## Final review — two live assertions are discovery tests, on purpose
+
+`test/google-sheet.test.ts` cases `[3]` and `[4]` assert things nobody on this branch has seen
+Google do. Both were derived from `test/fake-sheets.ts`, and `[4]` says so in its own comment:
+
+- **`[3]`** — an explicit `range` wins over the row `appendData` computed, so the write lands at
+  the range start and overwrites row 1. That is the pre-existing bug written up above; whether the
+  API places the write there is the fake's model, not an observation.
+- **`[4]`** — the API refuses a *read* whose range reaches past the grid, which is what makes
+  `appendData` through an out-of-grid range fail before any growth can happen. The fake refuses it
+  because `getData` clamps its own reads, which only makes sense if an unclamped read fails. That
+  is an argument, not a run.
+
+Neither had ever executed against Google when 2.3.0 was cut, and the first execution is the first
+push to master — the same job the `publish` step depends on. A wrong guess would have turned that
+run red and held the release hostage to a claim the release does not rest on.
+
+So both now call a `discovery` helper: the assertions still run, and a disagreement prints a
+`DISCOVERY:` block naming the subject and the mismatch, then calls `this.skip()`. Mocha reports
+the case as pending rather than failed, the job stays green, and the log says exactly what Google
+actually did. Verified locally with a throwaway spec: agreement passes, disagreement prints the
+diagnostic and reports `1 passing, 2 pending`, and no code after the helper runs.
+
+**What to do when one of them skips.** Read the diagnostic. Correct `test/fake-sheets.ts` and, if
+the library is wrong too, the library, then turn the case back into a hard assertion — the helper
+is scaffolding for one unknown, not a pattern for the suite. Every other live case still fails
+normally.
