@@ -144,13 +144,15 @@ Those calls now return what the same call with an explicit `minCol: 1` returns, 
 
 Measured against published 2.2.0 through the library's own HTTP fake, over 125 shapes — six worksheet fixtures (regular, ragged header, header-only, blank first heading, empty, header wider than its data) crossed with `hasHeaderRow`, `minCol` absent/0/1/2 and `minRow` absent/2, plus `maxCol`/`maxRow` variants, the four range forms, and six chained-call scenarios on one shared instance: **83 identical, 0 different, 42 previously throwing**.
 
-### Two 2.2.x calls that changed in 2.3.0
+### Three 2.2.x calls that changed in 2.3.0
 
-These arrived in 2.3.0, not in 3.0.0, so they are new only to someone upgrading from 2.2.x. Both were found by running the published 2.2.0 build and this one side by side over 62 call shapes; those two are the only differences.
+These arrived in 2.3.0, not in 3.0.0, so they are new only to someone upgrading from 2.2.x. All three were found by running the published 2.2.0 build and this one side by side through the library's HTTP fake; they are the only differences.
 
 **A range that names no worksheet, together with a `worksheetTitle` that does not exist, now fails.** `updateData(data, { worksheetTitle: 'Ghost', range: 'A1:B1' })` handed `A1:B1` to the API on 2.2.0, which resolved it against the first sheet and wrote there. Now the grid-sizing step looks the worksheet up first, does not find it, and throws. It needs both halves — a range carrying no worksheet, and a title naming a sheet that is gone. The cli cannot reach it (no write command exposes a `range` flag); only the library and the GitHub action's `range` option can.
 
 **`appendData` no longer writes the range's worksheet back onto the options object you passed.** With a quoted range and an explicit title, 2.2.0 left your `worksheetTitle` mutated to the range's worksheet; it is now left as you passed it. The data lands in the same cells either way. It is visible through the GitHub action, which serialises `command.kwargs` into its `results` output, so a workflow reading `kwargs[1].worksheetTitle` after such a call sees a different value.
+
+**An anchor range with no end is rejected before the request rather than by the API.** `getData({ range: "'Sheet1'!A2:" })` fails on 2.2.x and it fails now; what changed is where. 2.2.0 sent the request and surfaced the API's `Unable to parse range:`, and the call now fails locally with `Invalid range "'Sheet1'!A2:"` and sends nothing. Only the message and the request count differ, so this matters if something is matching on the old text.
 
 ### What has not changed
 
