@@ -15,6 +15,11 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}
 
+# Third-party actions are pinned to the commit their tag pointed at when this workflow was
+# written, with the tag in the comment. A tag can be moved, a commit cannot, so a compromised
+# upstream release cannot reach the secrets this workflow loads. Dependabot's github-actions
+# ecosystem keeps the pins moving.
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -25,9 +30,9 @@ jobs:
       matrix:
         node: ${{ github.event_name == 'pull_request' && fromJSON('[22, 24]') || fromJSON('[24]') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
@@ -35,6 +40,12 @@ jobs:
       - name: ci
         run: npm ci
 
+      # No credentials are in the environment here and none are needed: the offline suite covers
+      # the library through test/fake-sheets.ts and the command layer through
+      # test/commands/offline.test.ts, which stubs src/lib/factory. This is the only test gate a
+      # pull request gets, so it is the one that has to catch an oclif flag or argument
+      # regression before it is merged.
+      #
       # 2.x needed NODE_OPTIONS=--no-experimental-strip-types here: mocha 10 imported the .ts
       # specs as ES modules on Node 22.18 and later, bypassing ts-node's CommonJS hook, and
       # @oclif/test 2 then died on `module.parent`. mocha 12 requires them through ts-node again
@@ -43,15 +54,27 @@ jobs:
         if: github.event_name == 'pull_request'
         run: npm run test:unit
 
+      # lib/ is gitignored and `npm ci` only fires the husky prepare script, so nothing has built
+      # it yet. The suites run from src/ through ts-node and would not notice a build that no
+      # longer emits, and bin/clear-testsheet.sh below drives ./bin/run.js, which resolves its
+      # commands from lib/ and exits 2 with "command spreadsheet:get not found" without it.
+      - name: build
+        run: npm run build
+
+      # The published CLI loads its command tree from lib/, not from src/. This catches a broken
+      # oclif command path or manifest, which nothing running under ts-node can see.
+      - name: cli smoke test
+        run: ./bin/run.js --help
+
       - name: Configure 1Password Service Account
         if: github.event_name == 'push'
-        uses: 1password/load-secrets-action/configure@v1
+        uses: 1password/load-secrets-action/configure@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Load Secrets
         if: github.event_name == 'push'
-        uses: 1password/load-secrets-action@v1
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           unset-previous: false
           export-env: true
@@ -77,14 +100,6 @@ jobs:
           GSHEET_CLIENT_EMAIL: ${{ env.GSHEET_CLIENT_EMAIL }}
           GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
           TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
-
-      # bin/clear-testsheet.sh drives ./bin/run.js, which resolves its commands from lib/. lib/ is
-      # gitignored and `npm ci` only fires the husky prepare script, so without this the next step
-      # exits 2 with "command spreadsheet:get not found", takes the whole job down under
-      # `set -euo pipefail`, and publish never runs.
-      - name: build
-        if: github.event_name == 'push'
-        run: npm run build
 
       # Reports what the cron would remove, without removing anything, so a bad classification
       # shows up on the push that caused it.
@@ -113,18 +128,25 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      # semantic-release runs prepack, which builds and regenerates the docs. Pin the Node it
+      # does that on rather than taking whatever the runner image ships this week.
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
 
       - name: ci
         run: npm ci
 
       - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v1
+        uses: 1password/load-secrets-action/configure@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           service-account-token: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
       - name: Load Secrets
-        uses: 1password/load-secrets-action@v1
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           unset-previous: false
           export-env: true
