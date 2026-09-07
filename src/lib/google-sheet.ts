@@ -288,12 +288,15 @@ export default class GoogleSheet {
     }
 
     const { rows, cols } = requiredGrid(data, options);
-    const sheet = await this.getWorksheet(targetTitle, spreadsheetId);
-    // Only size a grid the write is going to land in. With an unquoted range and no explicit
-    // title the call resolves to the remembered worksheet while getRange sends the write to the
-    // range's, so growing here would add rows to a sheet nobody asked about. Leaving it alone is
-    // what 2.2.0 did with that combination.
-    if (!rangeTitle || rangeTitle === targetTitle) await this.ensureGridSize(sheet, rows, cols, spreadsheetId);
+    // Only size a grid the write is going to land in, and only read the one being sized. With an
+    // unquoted range and no explicit title the call resolves to the remembered worksheet while
+    // getRange sends the write to the range's, so growing here would add rows to a sheet nobody
+    // asked about - and fetching it would fail a write that 2.2.0 completed, whenever the
+    // remembered title has since been renamed away.
+    if (!rangeTitle || rangeTitle === targetTitle) {
+      const sheet = await this.getWorksheet(targetTitle, spreadsheetId);
+      await this.ensureGridSize(sheet, rows, cols, spreadsheetId);
+    }
 
     const range = getRange(options);
     await this.sheets.spreadsheets.values.update({

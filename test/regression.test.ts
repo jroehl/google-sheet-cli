@@ -440,6 +440,17 @@ describe('google-sheet regression', () => {
       expect(error).to.equal('Specify worksheetTitle');
     });
 
+    it('2.2.x: writes through an unquoted range when the remembered worksheet does not exist', async () => {
+      // an instance can be constructed with a worksheet title and nothing checks that it exists.
+      // 2.2.0 never looked the remembered title up at all - the range decided where the write
+      // went - so resolving one that has since gone must not fail a write aimed elsewhere.
+      await gsheet.addWorksheet('Second');
+      const ghosted = new GoogleSheet(SPREADSHEET_ID, 'Ghost');
+      await ghosted.authorize(fake.credentials);
+      await ghosted.updateData([['landed']], { range: `Second!A1` });
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('landed');
+    });
+
     it('honors valueInputOption', async () => {
       await gsheet.updateData([['=1+1']], { worksheetTitle: TITLE, minCol: 1, minRow: 1, valueInputOption: GoogleSheetCli.ValueInputOption.USER_ENTERED });
       const update = fake.requests.filter((request) => request.method === 'PUT').pop();

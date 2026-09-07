@@ -451,7 +451,7 @@ from an earlier command.
 | quoted range B, no title | resolves to **B**, and remembers B (2.2.x) | writes to B, grows B's grid |
 | unquoted range B + explicit A | resolves to **A**, and remembers A (2.2.x) | **warns**, then writes to B and grows B's grid (2.2.x wrote to B without growing) |
 | unquoted range B + explicit B (agreeing) | resolves to B | writes to B, grows B's grid |
-| unquoted range B, no title | resolves to **R**, or throws `Option property "worksheetTitle" is required` with nothing remembered (2.2.x) | resolves to **R** for the grid, but `getRange` sends the write to **B** and the grid is deliberately left alone; `Specify worksheetTitle` with nothing remembered (2.2.x) |
+| unquoted range B, no title | resolves to **R**, or throws `Option property "worksheetTitle" is required` with nothing remembered (2.2.x) | needs **R** to exist as a name only; `getRange` sends the write to **B**, and neither sheet is read or grown; `Specify worksheetTitle` with nothing remembered (2.2.x) |
 
 Two deliberate asymmetries in that table:
 
@@ -459,11 +459,15 @@ Two deliberate asymmetries in that table:
   worksheet and a range naming another has said two contradictory things however the range spelled
   it. Reading is left alone, so `getData` keeps 2.2.x's silent preference; the write path says
   which one wins on stderr and then writes where 2.2.x wrote, to the range's worksheet.
-- **`updateData` skips `ensureGridSize`** when the range names a worksheet other than the one the
-  call resolved to — the last row of the table. Sizing there would add rows to a sheet nobody
-  asked about, while the write still lands somewhere else. Leaving it alone is what 2.2.0 did with
-  that combination, and it is the only combination where the two can differ, because every other
-  one either agrees or has already thrown.
+- **`updateData` skips both the read and `ensureGridSize`** when the range names a worksheet other
+  than the one the call resolved to — the last row of the table. Sizing there would add rows to a
+  sheet nobody asked about, while the write still lands somewhere else. Leaving it alone is what
+  2.2.0 did with that combination, and it is the only combination where the two can differ,
+  because every other one agrees. Reading the resolved worksheet in that branch would also have
+  been a regression in its own right: it is fetched only to size it, and an instance constructed
+  with a `worksheetTitle` that does not exist would have had a write aimed at another sheet
+  entirely refused, where 2.2.0 completed it. Pinned by `2.2.x: writes through an unquoted range
+  when the remembered worksheet does not exist`.
 
 All six rows are pinned in `test/regression.test.ts`, each labelled with the 2.2.x behaviour it
 preserves.
