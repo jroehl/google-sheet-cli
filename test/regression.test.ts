@@ -6,6 +6,10 @@ import { FakeSheets } from './fake-sheets';
  * Behavioral contract for every public method of `GoogleSheet`, driven through the
  * in-memory fake of the Sheets REST API. These expectations were written against the
  * code as it stood before the #611 grid-growth work and must keep passing afterwards.
+ *
+ * One expectation moved deliberately in 3.0.0: what these methods throw is now an `Error`
+ * rather than a bare string. The messages are unchanged, so each case still pins the same
+ * text and additionally pins the wrapper.
  */
 
 const SPREADSHEET_ID = 'fake-spreadsheet-id';
@@ -147,9 +151,10 @@ describe('google-sheet regression', () => {
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('y');
     });
 
-    it('throws a string when the worksheet is missing', async () => {
+    it('throws an Error when the worksheet is missing', async () => {
       const error = await rejection(() => gsheet.getWorksheet('Nope'));
-      expect(error).to.equal(`Sheet "Nope" not found in "${SPREADSHEET_TITLE}"`);
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal(`Sheet "Nope" not found in "${SPREADSHEET_TITLE}"`);
     });
   });
 
@@ -163,9 +168,10 @@ describe('google-sheet regression', () => {
       expect(fake.cell(SPREADSHEET_ID, 'Renamed', 'A1')).to.equal('z');
     });
 
-    it('throws a string when the worksheet is missing', async () => {
+    it('throws an Error when the worksheet is missing', async () => {
       const error = await rejection(() => gsheet.renameWorksheet('Nope', 'Renamed'));
-      expect(error).to.equal(`Sheet "Nope" not found in "${SPREADSHEET_TITLE}"`);
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal(`Sheet "Nope" not found in "${SPREADSHEET_TITLE}"`);
     });
   });
 
@@ -177,12 +183,14 @@ describe('google-sheet regression', () => {
       expect(fake.spreadsheets.get(SPREADSHEET_ID)?.sheets.map((sheet) => sheet.title)).to.eql([TITLE]);
 
       const error = await rejection(() => gsheet.getData({ minCol: 1, minRow: 1 }));
-      expect(error).to.equal('Option property "worksheetTitle" is required');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('Option property "worksheetTitle" is required');
     });
 
-    it('throws a string when the worksheet is missing', async () => {
+    it('throws an Error when the worksheet is missing', async () => {
       const error = await rejection(() => gsheet.removeWorksheet('Nope'));
-      expect(error).to.equal(`Sheet "Nope" not found in "${SPREADSHEET_TITLE}"`);
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal(`Sheet "Nope" not found in "${SPREADSHEET_TITLE}"`);
     });
   });
 
@@ -318,7 +326,8 @@ describe('google-sheet regression', () => {
       const fresh = new GoogleSheet(SPREADSHEET_ID);
       await fresh.authorize(fake.credentials);
       const error = await rejection(() => fresh.getData({ range: `Second!A1:B2` }));
-      expect(error).to.equal('Option property "worksheetTitle" is required');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('Option property "worksheetTitle" is required');
     });
 
     it('reads a quoted range', async () => {
@@ -348,16 +357,18 @@ describe('google-sheet regression', () => {
       ]);
     });
 
-    it('throws a string when no worksheetTitle can be resolved', async () => {
+    it('throws an Error when no worksheetTitle can be resolved', async () => {
       const error = await rejection(() => gsheet.getData({ minCol: 1, minRow: 1 }));
-      expect(error).to.equal('Option property "worksheetTitle" is required');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('Option property "worksheetTitle" is required');
     });
 
     it('throws when minCol is omitted, because the header naming starts at column 0', async () => {
       // a long standing quirk of getData; the CLI always defaults minCol to 1
       await gsheet.updateData(BLOCK, { worksheetTitle: TITLE, minCol: 1, minRow: 1 });
       const error = await rejection(() => gsheet.getData({ worksheetTitle: TITLE, minRow: 1 }));
-      expect(error).to.equal('col has to be greater than 1');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('col has to be greater than 1');
     });
   });
 
@@ -437,7 +448,8 @@ describe('google-sheet regression', () => {
       const fresh = new GoogleSheet(SPREADSHEET_ID);
       await fresh.authorize(fake.credentials);
       const error = await rejection(() => fresh.updateData([['x']], { range: `Second!A1` }));
-      expect(error).to.equal('Specify worksheetTitle');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('Specify worksheetTitle');
     });
 
     it('2.2.x: writes through an unquoted range when the remembered worksheet does not exist', async () => {
@@ -464,14 +476,16 @@ describe('google-sheet regression', () => {
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'B1')).to.equal('changed');
     });
 
-    it('throws a string when no worksheetTitle can be resolved', async () => {
+    it('throws an Error when no worksheetTitle can be resolved', async () => {
       const error = await rejection(() => gsheet.updateData([['a']], { minCol: 1, minRow: 1 }));
-      expect(error).to.equal('Specify worksheetTitle');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('Specify worksheetTitle');
     });
 
-    it('throws a string when the data is not a nested array', async () => {
+    it('throws an Error when the data is not a nested array', async () => {
       const error = await rejection(() => gsheet.updateData(<any>['a'], { worksheetTitle: TITLE, minCol: 1, minRow: 1 }));
-      expect(error).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
+      expect(error).to.be.an.instanceOf(Error);
+      expect(error.message).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
     });
   });
 

@@ -99,7 +99,7 @@ export default class GoogleSheet {
       spreadsheetId: spreadsheetId || this.spreadsheetId,
     });
 
-    if (!sheet) throw `Spreadsheet "${spreadsheetId || this.spreadsheetId}" not found`;
+    if (!sheet) throw new Error(`Spreadsheet "${spreadsheetId || this.spreadsheetId}" not found`);
     return sheet;
   }
 
@@ -115,7 +115,7 @@ export default class GoogleSheet {
     const { sheets = [], properties: { title: ssTitle = '' } = {} } = await this.getSpreadsheet(spreadsheetId);
 
     const sheet = sheets.find(({ properties: { title: ws } = {} }) => ws === title);
-    if (!sheet) throw `Sheet "${title}" not found in "${ssTitle}"`;
+    if (!sheet) throw new Error(`Sheet "${title}" not found in "${ssTitle}"`);
 
     this.worksheetTitle = sheet?.properties?.title;
     return sheet;
@@ -155,7 +155,7 @@ export default class GoogleSheet {
     }
 
     if (!options.worksheetTitle) {
-      throw 'Option property "worksheetTitle" is required';
+      throw new Error('Option property "worksheetTitle" is required');
     }
 
     const sheet = await this.getWorksheet(options.worksheetTitle, spreadsheetId);
@@ -191,7 +191,7 @@ export default class GoogleSheet {
           }),
         });
         [header] = res.data.values ?? [[]];
-        if (!header.length) throw 'No header row exists';
+        if (!header.length) throw new Error('No header row exists');
       }
     }
 
@@ -278,9 +278,9 @@ export default class GoogleSheet {
     // The range's worksheet is where the write lands whenever it won, so it is also the one to
     // resolve and to grow. Growing the other one would add rows to a sheet nobody wrote to.
     const targetTitle = (quoted || contradicted ? rangeTitle : undefined) || options.worksheetTitle;
-    if (!targetTitle) throw 'Specify worksheetTitle';
+    if (!targetTitle) throw new Error('Specify worksheetTitle');
     if (!Array.isArray(data) || !data.every(Array.isArray)) {
-      throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+      throw new Error('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
     }
     // A job that writes "whatever came in today" and finds nothing succeeded on every quiet day
     // before 2.3.0, so an empty array stays a success. It just no longer costs a request.

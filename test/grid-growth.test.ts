@@ -214,7 +214,8 @@ describe('grid growth (#611)', () => {
 
   it('still rejects data that is not a nested array', async () => {
     const error = await rejection(() => gsheet.updateData(<any>['a'], { worksheetTitle: FULL, minCol: 1, minRow: 1 }));
-    expect(error).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
+    expect(error).to.be.an.instanceOf(Error);
+    expect(error.message).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
   });
 
   it('keeps ragged rows ragged and sizes the grid from the longest one', async () => {
