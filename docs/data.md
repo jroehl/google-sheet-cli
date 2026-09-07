@@ -13,8 +13,8 @@ Append cells with the specified data after the last row in starting col
 
 ```
 USAGE
-  $ google-sheet data:append DATA -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-v RAW|USER_ENTERED]
-    [--minCol <value>]
+  $ google-sheet data:append DATA -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-f <value>] [-v
+    RAW|USER_ENTERED] [--minCol <value>]
 
 ARGUMENTS
   DATA  The data to be used as a JSON string - nested array [["1", "2", "3"]]
@@ -29,10 +29,13 @@ FLAGS
   --minCol=<value>                 [default: 1] The optional starting col of the operation
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Append cells with the specified data after the last row in starting col
@@ -50,9 +53,9 @@ Returns cell data
 
 ```
 USAGE
-  $ google-sheet data:get -s <value> -t <value> [-h] [-r] [-c <value>] [-p <value>] [--columns <value> | -x]
-    [--sort <value>] [--filter <value>] [--output csv|json|yaml |  | [--csv | --no-truncate]] [--no-header | ] [-w]
-    [--range <value>] [--minRow <value>] [--minCol <value>] [--maxRow <value>] [--maxCol <value>]
+  $ google-sheet data:get -s <value> -t <value> [-h] [-r] [-c <value>] [-p <value>] [-f <value>] [--columns
+    <value> | -x] [--sort <value>] [--filter <value>] [--output csv|json|yaml |  | [--csv | --no-truncate]] [--no-header
+    | ] [-w] [--range <value>] [--minRow <value>] [--minCol <value>] [--maxRow <value>] [--maxCol <value>]
 
 FLAGS
   -h, --help                    Show CLI help.
@@ -76,10 +79,13 @@ FLAGS
   --sort=<value>                property to sort by (prepend '-' for descending)
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Returns cell data
@@ -100,8 +106,8 @@ Updates cells with the specified data
 
 ```
 USAGE
-  $ google-sheet data:update DATA -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-v RAW|USER_ENTERED]
-    [--minRow <value>] [--minCol <value>]
+  $ google-sheet data:update DATA -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-f <value>] [-v
+    RAW|USER_ENTERED] [--minRow <value>] [--minCol <value>]
 
 ARGUMENTS
   DATA  The data to be used as a JSON string - nested array [["1", "2", "3"]]
@@ -117,10 +123,13 @@ FLAGS
   --minRow=<value>                 [default: 1] The optional starting row of the operation
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Updates cells with the specified data

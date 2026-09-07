@@ -14,7 +14,7 @@ Add a worksheet with the specified title to the spreadsheet
 
 ```
 USAGE
-  $ google-sheet worksheet:add -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
+  $ google-sheet worksheet:add -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-f <value>]
 
 FLAGS
   -h, --help                    Show CLI help.
@@ -23,10 +23,13 @@ FLAGS
   -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Add a worksheet with the specified title to the spreadsheet
@@ -44,7 +47,7 @@ Get info for a specific worksheet
 
 ```
 USAGE
-  $ google-sheet worksheet:get -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
+  $ google-sheet worksheet:get -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-f <value>]
 
 FLAGS
   -h, --help                    Show CLI help.
@@ -53,10 +56,13 @@ FLAGS
   -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Get info for a specific worksheet
@@ -74,7 +80,7 @@ Remove a worksheet with the specified title from the spreadsheet
 
 ```
 USAGE
-  $ google-sheet worksheet:remove -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
+  $ google-sheet worksheet:remove -t <value> -s <value> [-h] [-r] [-c <value>] [-p <value>] [-f <value>]
 
 FLAGS
   -h, --help                    Show CLI help.
@@ -83,10 +89,13 @@ FLAGS
   -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Remove a worksheet with the specified title from the spreadsheet
@@ -104,7 +113,8 @@ Add a worksheet with the specified title to the spreadsheet
 
 ```
 USAGE
-  $ google-sheet worksheet:rename -t <value> --newWorksheetTitle <value> -s <value> [-h] [-r] [-c <value>] [-p <value>]
+  $ google-sheet worksheet:rename -t <value> --newWorksheetTitle <value> -s <value> [-h] [-r] [-c <value>] [-p
+    <value>] [-f <value>]
 
 FLAGS
   -h, --help                    Show CLI help.
@@ -114,10 +124,13 @@ FLAGS
   --newWorksheetTitle=<value>   (required) New title of the worksheet to use
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>  The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable if
-                             not provided.
-  -p, --privateKey=<value>   The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not
-                             provided.
+  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
+                                 if not provided.
+  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
+                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
+                                 flags take precedence.
+  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
+                                 not provided.
 
 DESCRIPTION
   Add a worksheet with the specified title to the spreadsheet
