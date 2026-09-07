@@ -79,6 +79,14 @@ jobs:
           GSHEET_PRIVATE_KEY: ${{ env.GSHEET_PRIVATE_KEY }}
           TEST_SPREADSHEET_ID: ${{ env.TEST_SPREADSHEET_ID }}
 
+      # bin/clear-testsheet.sh drives ./bin/run, which resolves its commands from lib/. lib/ is
+      # gitignored and `npm ci` only fires the husky prepare script, so without this the next step
+      # exits 2 with "command spreadsheet:get not found", takes the whole job down under
+      # `set -euo pipefail`, and publish never runs.
+      - name: build
+        if: github.event_name == 'push'
+        run: npm run build
+
       # Reports what the cron would remove, without removing anything, so a bad classification
       # shows up on the push that caused it.
       - name: cleanup dry run
