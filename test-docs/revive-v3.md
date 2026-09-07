@@ -594,3 +594,29 @@ diagnostic and reports `1 passing, 2 pending`, and no code after the helper runs
 the library is wrong too, the library, then turn the case back into a hard assertion — the helper
 is scaffolding for one unknown, not a pattern for the suite. Every other live case still fails
 normally.
+
+## Final review — the two 2.2.x calls that do change
+
+The fix wave's report claimed no 2.2.0 call fails on 2.3.0. Running the published 2.2.0 build and
+this branch side by side against the HTTP fake over 62 call shapes found that claim slightly too
+strong. Two differences survive, both narrow, both recorded here rather than fixed.
+
+**A sheet-less range together with a worksheet title that does not exist now fails.**
+`updateData(data, { worksheetTitle: 'Ghost', range: 'A1:B1' })` names no worksheet in the range, so
+2.2.0 handed `A1:B1` to the API, which resolved it against the first sheet and wrote there. On
+2.3.0 the sizing branch runs, `getWorksheet('Ghost')` refuses, and the call throws. It arrived with
+the grid-growth commit, not with the fix wave, and it needs both halves of the precondition: a
+range carrying no worksheet, and a title naming a sheet that is gone. The CLI cannot reach it,
+because neither write command exposes a `range` flag; only the library and the action's `range`
+option can. What 2.2.0 did there was write to a sheet the caller never named, so the new failure is
+arguably the better outcome, but it is a behaviour change and it belongs in the release notes.
+
+A related case changes nothing observable: a sheet-less range with an *existing* title that is not
+the first sheet sizes the named sheet while the API writes to the first one. Nothing fails; the
+named sheet may gain rows nobody uses.
+
+**`appendData` no longer writes the range's worksheet back onto the caller's options object.**
+With a quoted range and an explicit title, 2.2.0 left `worksheetTitle` mutated to the range's
+worksheet; 2.3.0 leaves what the caller passed. The data lands in the same cells either way. It is
+observable through the GitHub action, which serialises `command.kwargs` into its `results` output,
+so a workflow reading `kwargs[1].worksheetTitle` after such a call sees a different value.
