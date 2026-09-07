@@ -620,3 +620,110 @@ With a quoted range and an explicit title, 2.2.0 left `worksheetTitle` mutated t
 worksheet; 2.3.0 leaves what the caller passed. The data lands in the same cells either way. It is
 observable through the GitHub action, which serialises `command.kwargs` into its `results` output,
 so a workflow reading `kwargs[1].worksheetTitle` after such a call sees a different value.
+
+## Step 13 — the `2.x` maintenance branch, to be cut by the maintainer after 2.3.0 is on npm
+
+Step 13's brief opened by creating `2.x` from the `v2.3.0` tag. That tag does not exist: 2.3.0 has
+not been published, so there is nothing to branch from and nothing for a dry run to compare
+against. The branch is therefore **not** created here. Everything it will need is written out
+below so that cutting it later is a copy, not a design exercise.
+
+**Order of operations for the maintainer**
+
+1. Merge and push the 2.3.0 work; let the release workflow publish `2.3.0` to npm.
+2. `git branch 2.x v2.3.0 && git switch 2.x`.
+3. Add the `.releaserc` below **on `2.x` only**. Master is on 3.x by then, so declaring a `2.x`
+   maintenance range no longer risks the `EMAINTENANCEBRANCH` failure that Step 7 avoided.
+4. Gate on `npx semantic-release --dry-run --no-ci` printing a `2.3.x` next version. A green
+   workflow run is not the gate; the dry run is.
+5. Prove the path end to end with one README-only commit,
+   `fix: point 2.x users at the 3.x migration notes`, and confirm `npm view google-sheet-cli@2.3.1
+   version` prints `2.3.1` and `npm dist-tag add google-sheet-cli@2.3.1 v2` follows.
+
+**`.releaserc`, verbatim**
+
+```json
+{
+  "branches": [{ "name": "2.x", "range": "2.x" }, "master"]
+}
+```
+
+**Workflow trigger and publish condition**
+
+Both are already in `.github/workflows/test-and-release.yml` on master and are inherited by the
+branch; they are repeated here so a hand-built branch can be checked against them.
+
+```yaml
+on:
+  push:
+    branches:
+      - master
+      - 2.x
+```
+
+```yaml
+  publish:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/2.x')
+```
+
+**One thing to change on the branch after cutting it.** 3.0.0 raises the Node floor to 22 and the
+workflow's matrix with it. The 2.x line still supports Node 18, so on `2.x` the matrix and the
+`NODE_OPTIONS: --no-experimental-strip-types` step have to stay as they were at the 2.3.0 tag —
+that is what the tag carries, so simply not touching the workflow on `2.x` is correct.
+
+## Step 13 — `ux.table` has no successor in `@oclif/core` 5
+
+`data:get` contributed eight flags through `ux.table.flags()` — `--columns`, `--sort`, `--filter`,
+`--csv`, `--output`, `-x/--extended`, `--no-truncate`, `--no-header` — and rendered through
+`ux.table`. Core 4 deleted both and core 5 has no replacement. The official successor,
+`@oclif/table`, renders a boxed table, contributes no flags, and pulls in React and ink.
+
+Dropping the flags was not an option: `data:get --csv` and friends are shipped surface. The table
+implementation from `@oclif/core@2.8.11` is therefore carried in `src/lib/table.ts`, unchanged
+apart from being TypeScript, with the four libraries it uses (`chalk`, `js-yaml`, `natural-orderby`,
+`string-width`) promoted from transitive dependencies of core 2 to direct dependencies. All four
+were already installed at 2.3.0, so the dependency tree is roughly a wash.
+
+Output was compared byte for byte against `@oclif/core@2.8.11`'s `ux.table` over the `data:get`
+fixture in eleven flag combinations (default, `--no-header`, `--csv`, `--output=json`,
+`--output=yaml`, `--sort`, `--sort=-`, `--columns`, `--filter`, `--extended`, `--no-truncate`),
+piped and with `OCLIF_COLUMNS=14 CLI_UX_SKIP_TTY_CHECK=1` to force the truncation path. Identical
+in every case, ANSI escapes included.
+
+The one trap found on the way: `import * as chalk from 'chalk'` compiles under `module: node16`
+but `chalk.bold` is undefined at runtime, because `__importStar` does not copy chalk's
+non-enumerable style getters. It has to be a default import.
+
+## Step 13 — the type-stripping workaround is gone
+
+Step 7 recorded that Node 22.18 and later could not run the offline suite: mocha 10 imported the
+`.ts` specs as ES modules, ts-node's CommonJS hook never ran, and `@oclif/test` 2 died reading
+`module.parent.filename`. CI carried `NODE_OPTIONS: --no-experimental-strip-types` for it.
+
+mocha 12 requires the specs through ts-node again and `@oclif/test` 5 no longer reads
+`module.parent`, so the flag is unnecessary. Verified with the flag unset:
+
+```
+node v22.22.0  npm run test:unit → 160 passing
+node v24.11.1  npm run test:unit → 160 passing
+```
+
+and with the flag still set on Node 24, also 160 passing — so a stale `NODE_OPTIONS` somewhere
+would not break anything, it is simply no longer needed. The env block is removed from the
+workflow and the matrix moves to `[22, 24]` for pull requests and `[24]` for pushes, matching
+`engines.node >= 22`.
+
+## Step 13 — `@oclif/test` 5's `runCommand` re-splits its arguments
+
+`runCommand(argv)` joins the array with spaces and splits it again, honouring double quotes only.
+An argument containing a space therefore arrives as two arguments unless it is written with
+embedded quotes:
+
+```ts
+runCommand(['data:update', '-s', 'x', '-t', 'y', 'not json'])    // → Unexpected argument: json
+runCommand(['data:update', '-s', 'x', '-t', 'y', '"not json"'])  // → the JSON error, as intended
+```
+
+The command suite is safe as written — `JSON.stringify` emits no spaces and the worksheet titles
+are generated without them — but anything added later that passes a value with a space in it has
+to quote it.

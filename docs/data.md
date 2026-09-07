@@ -22,20 +22,21 @@ ARGUMENTS
 FLAGS
   -h, --help                       Show CLI help.
   -r, --rawOutput                  Get the raw output as a JSON string
-  -s, --spreadsheetId=<value>      (required) ID of the spreadsheet to use
-  -t, --worksheetTitle=<value>     (required) Title of the worksheet to use
-  -v, --valueInputOption=<option>  [default: RAW] The style of the input ("RAW" or "USER_ENTERED")
+  -s, --spreadsheetId=<value>      (required) [env: SPREADSHEET_ID] ID of the spreadsheet to use
+  -t, --worksheetTitle=<value>     (required) [env: WORKSHEET_TITLE] Title of the worksheet to use
+  -v, --valueInputOption=<option>  [default: RAW, env: VALUE_INPUT_OPTION] The style of the input ("RAW" or
+                                   "USER_ENTERED")
                                    <options: RAW|USER_ENTERED>
-  --minCol=<value>                 [default: 1] The optional starting col of the operation
+      --minCol=<value>             [default: 1] The optional starting col of the operation
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
-                                 if not provided.
-  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
-                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
-                                 flags take precedence.
-  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
-                                 not provided.
+  -c, --clientEmail=<value>      [env: GSHEET_CLIENT_EMAIL] The client email to use for authentication. Uses the
+                                 GSHEET_CLIENT_EMAIL env variable if not provided.
+  -f, --credentialsFile=<value>  [env: GSHEET_CREDENTIALS_FILE] Path to the service account JSON file to read the
+                                 credentials from. Uses the GSHEET_CREDENTIALS_FILE env variable if not provided. The
+                                 clientEmail and privateKey flags take precedence.
+  -p, --privateKey=<value>       [env: GSHEET_PRIVATE_KEY] The private key to use for authentication. Uses the
+                                 GSHEET_PRIVATE_KEY env variable if not provided.
 
 DESCRIPTION
   Append cells with the specified data after the last row in starting col
@@ -60,32 +61,32 @@ USAGE
 FLAGS
   -h, --help                    Show CLI help.
   -r, --rawOutput               Get the raw output as a JSON string
-  -s, --spreadsheetId=<value>   (required) ID of the spreadsheet to use
-  -t, --worksheetTitle=<value>  (required) Title of the worksheet to use
+  -s, --spreadsheetId=<value>   (required) [env: SPREADSHEET_ID] ID of the spreadsheet to use
+  -t, --worksheetTitle=<value>  (required) [env: WORKSHEET_TITLE] Title of the worksheet to use
   -w, --hasHeaderRow            If the first row should be treated as header row
   -x, --extended                show extra columns
-  --columns=<value>             only show provided columns (comma-separated)
-  --csv                         output is csv format [alias: --output=csv]
-  --filter=<value>              filter property by partial string matching, ex: name=foo
-  --maxCol=<value>              The optional ending col of the operation
-  --maxRow=<value>              The optional ending row of the operation
-  --minCol=<value>              [default: 1] The optional starting col of the operation
-  --minRow=<value>              [default: 1] The optional starting row of the operation
-  --no-header                   hide table header from output
-  --no-truncate                 do not truncate output to fit screen
-  --output=<option>             output in a more machine friendly format
+      --columns=<value>         only show provided columns (comma-separated)
+      --csv                     output is csv format [alias: --output=csv]
+      --filter=<value>          filter property by partial string matching, ex: name=foo
+      --maxCol=<value>          The optional ending col of the operation
+      --maxRow=<value>          The optional ending row of the operation
+      --minCol=<value>          [default: 1] The optional starting col of the operation
+      --minRow=<value>          [default: 1] The optional starting row of the operation
+      --no-header               hide table header from output
+      --no-truncate             do not truncate output to fit screen
+      --output=<option>         output in a more machine friendly format
                                 <options: csv|json|yaml>
-  --range=<value>               The range to use to query the cells
-  --sort=<value>                property to sort by (prepend '-' for descending)
+      --range=<value>           The range to use to query the cells
+      --sort=<value>            property to sort by (prepend '-' for descending)
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
-                                 if not provided.
-  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
-                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
-                                 flags take precedence.
-  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
-                                 not provided.
+  -c, --clientEmail=<value>      [env: GSHEET_CLIENT_EMAIL] The client email to use for authentication. Uses the
+                                 GSHEET_CLIENT_EMAIL env variable if not provided.
+  -f, --credentialsFile=<value>  [env: GSHEET_CREDENTIALS_FILE] Path to the service account JSON file to read the
+                                 credentials from. Uses the GSHEET_CREDENTIALS_FILE env variable if not provided. The
+                                 clientEmail and privateKey flags take precedence.
+  -p, --privateKey=<value>       [env: GSHEET_PRIVATE_KEY] The private key to use for authentication. Uses the
+                                 GSHEET_PRIVATE_KEY env variable if not provided.
 
 DESCRIPTION
   Returns cell data
@@ -115,21 +116,22 @@ ARGUMENTS
 FLAGS
   -h, --help                       Show CLI help.
   -r, --rawOutput                  Get the raw output as a JSON string
-  -s, --spreadsheetId=<value>      (required) ID of the spreadsheet to use
-  -t, --worksheetTitle=<value>     (required) Title of the worksheet to use
-  -v, --valueInputOption=<option>  [default: RAW] The style of the input ("RAW" or "USER_ENTERED")
+  -s, --spreadsheetId=<value>      (required) [env: SPREADSHEET_ID] ID of the spreadsheet to use
+  -t, --worksheetTitle=<value>     (required) [env: WORKSHEET_TITLE] Title of the worksheet to use
+  -v, --valueInputOption=<option>  [default: RAW, env: VALUE_INPUT_OPTION] The style of the input ("RAW" or
+                                   "USER_ENTERED")
                                    <options: RAW|USER_ENTERED>
-  --minCol=<value>                 [default: 1] The optional starting col of the operation
-  --minRow=<value>                 [default: 1] The optional starting row of the operation
+      --minCol=<value>             [default: 1] The optional starting col of the operation
+      --minRow=<value>             [default: 1] The optional starting row of the operation
 
 AUTHENTICATION FLAGS
-  -c, --clientEmail=<value>      The client email to use for authentication. Uses the GSHEET_CLIENT_EMAIL env variable
-                                 if not provided.
-  -f, --credentialsFile=<value>  Path to the service account JSON file to read the credentials from. Uses the
-                                 GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey
-                                 flags take precedence.
-  -p, --privateKey=<value>       The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if
-                                 not provided.
+  -c, --clientEmail=<value>      [env: GSHEET_CLIENT_EMAIL] The client email to use for authentication. Uses the
+                                 GSHEET_CLIENT_EMAIL env variable if not provided.
+  -f, --credentialsFile=<value>  [env: GSHEET_CREDENTIALS_FILE] Path to the service account JSON file to read the
+                                 credentials from. Uses the GSHEET_CREDENTIALS_FILE env variable if not provided. The
+                                 clientEmail and privateKey flags take precedence.
+  -p, --privateKey=<value>       [env: GSHEET_PRIVATE_KEY] The private key to use for authentication. Uses the
+                                 GSHEET_PRIVATE_KEY env variable if not provided.
 
 DESCRIPTION
   Updates cells with the specified data
