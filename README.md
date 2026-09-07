@@ -8,7 +8,7 @@ A simple helper cli to interact with google sheets.
 - Unusable service account credentials are rejected before the first request, with a message that names the fix instead of an OpenSSL parser error.
 - The new `--credentialsFile` flag reads the credentials straight out of the service account JSON file. See [Credentials](#credentials).
 - Writing past the last row or column of a worksheet now grows the grid first instead of failing with "exceeds grid limits", so appending to a sheet that is already full works again.
-- A `range` naming a different worksheet than `worksheetTitle` is now rejected, because one of the two was a mistake and quietly writing to the one the range named hid it.
+- A `range` naming a different worksheet than `worksheetTitle` still writes to the worksheet the range names, exactly as 2.2.x did, but now says so on stderr instead of resolving the contradiction silently. Refusing the call outright is held for 3.0.0.
 - `updateData` now accepts a `range` carrying a quoted worksheet title with no `worksheetTitle` beside it, taking the worksheet from the range instead of insisting on a title the range already named. As in 2.2.x, an unquoted title inside a range does not name the worksheet.
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)

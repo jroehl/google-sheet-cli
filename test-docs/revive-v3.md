@@ -445,19 +445,19 @@ from an earlier command.
 
 | Combination | `getData` | `updateData` |
 |---|---|---|
-| quoted range B + explicit A | resolves to **B**, and remembers B (2.2.x) | **throws** `range "…" targets worksheet "B" but worksheetTitle is "A"` |
+| quoted range B + explicit A | resolves to **B**, and remembers B (2.2.x) | **warns**, then writes to B and grows B's grid (2.2.x) |
 | quoted range B + explicit B (agreeing) | resolves to B | writes to B, grows B's grid |
 | quoted range B, no title | resolves to **B**, and remembers B (2.2.x) | writes to B, grows B's grid |
-| unquoted range B + explicit A | resolves to **A**, and remembers A (2.2.x) | **throws** the same mismatch error |
+| unquoted range B + explicit A | resolves to **A**, and remembers A (2.2.x) | **warns**, then writes to B and grows B's grid (2.2.x wrote to B without growing) |
 | unquoted range B + explicit B (agreeing) | resolves to B | writes to B, grows B's grid |
 | unquoted range B, no title | resolves to **R**, or throws `Option property "worksheetTitle" is required` with nothing remembered (2.2.x) | resolves to **R** for the grid, but `getRange` sends the write to **B** and the grid is deliberately left alone; `Specify worksheetTitle` with nothing remembered (2.2.x) |
 
 Two deliberate asymmetries in that table:
 
-- **The mismatch check ignores quoting** where resolution does not. A caller who names one
+- **The contradiction warning ignores quoting** where resolution does not. A caller who names one
   worksheet and a range naming another has said two contradictory things however the range spelled
-  it, and writing to the one they did not name is the failure worth refusing. Reading from it is
-  not, so `getData` keeps 2.2.x's silent preference and only the write path refuses.
+  it. Reading is left alone, so `getData` keeps 2.2.x's silent preference; the write path says
+  which one wins on stderr and then writes where 2.2.x wrote, to the range's worksheet.
 - **`updateData` skips `ensureGridSize`** when the range names a worksheet other than the one the
   call resolved to — the last row of the table. Sizing there would add rows to a sheet nobody
   asked about, while the write still lands somewhere else. Leaving it alone is what 2.2.0 did with
@@ -527,3 +527,37 @@ node@18` is blocked by the sandbox network allowlist (`deny network-outbound nod
 18 predates type stripping entirely, so it takes the same `ERR_UNKNOWN_FILE_EXTENSION` → `require`
 path as Node 20, which passes — but that is an argument, not a run. The Node 18 leg is first
 verified by CI.
+
+## Final review — R28: the contradiction warns in 2.3.0, and throws in 3.0.0
+
+Round 3 shipped a hard refusal for the case where the caller passes an explicit `worksheetTitle`
+and a `range` naming a different worksheet:
+
+```
+range "Second!A1" targets worksheet "Second" but worksheetTitle is "Sheet1"
+```
+
+2.2.0 wrote to the range's worksheet there. `updateData` never looked at the range's title at all:
+`getRange` returns `options.range` verbatim whenever a range is present, so the API decided, and
+the explicit title only ever affected the code path that did not run. The guard is defensible — one
+of the two values is a mistake — but it turns a call that worked on every 2.x release into a hard
+failure, and for a fix release compatibility outranks tidiness.
+
+**In 2.3.0** the contradiction is a warning on stderr naming both worksheets and saying which one
+wins, followed by 2.2.0's write:
+
+```
+gsheet:sheets range "Second!A1" targets worksheet "Second" but worksheetTitle is "Sheet1"; writing to "Second", as 2.2.x did
+```
+
+The worksheet the range names is also what `updateData` resolves and grows in that case, so the
+grid that grows is the one the write lands in — and a caller whose explicit `worksheetTitle` names
+a sheet that does not exist is no longer refused by the extra `getWorksheet` read either, which is
+another way the refusal could have failed a call 2.2.0 completed.
+
+**For 3.0.0**, restore the throw. The message and the exact condition are the ones above; it is a
+breaking change, it belongs in a major, and it wants a release note telling callers to drop one of
+the two values. Pinned meanwhile by `2.2.x: an unquoted range worksheet that contradicts the
+explicit title is written to, with a warning` in `test/regression.test.ts` and by
+`warns, then writes to the range worksheet, when it contradicts worksheetTitle` in
+`test/grid-growth.test.ts`.

@@ -393,8 +393,9 @@ describe('google-sheet regression', () => {
     });
 
     // The same four combinations as getData. Resolution follows getData - a quoted title in the
-    // range wins, an unquoted one does not - but the mismatch check ignores quoting, because a
-    // write to a worksheet the caller did not name is worth refusing either way.
+    // range wins, an unquoted one does not - but a range that contradicts an explicit title
+    // wins whichever way it spelled the title, and only says so on stderr (2.2.x wrote there
+    // silently; the refusal is held for 3.0.0).
 
     it('2.2.x: a quoted range worksheet is written to, even after another one was touched', async () => {
       // the action runs every command through one shared instance, so the title left over from
@@ -412,13 +413,15 @@ describe('google-sheet regression', () => {
       expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('agreed');
     });
 
-    it('refuses an unquoted range worksheet that contradicts the explicit title', async () => {
-      // 2.2.x wrote to Second here while validating Sheet1; that silence is the bug, not the
-      // behaviour to keep, so this is a new refusal rather than a regression
+    it('2.2.x: an unquoted range worksheet that contradicts the explicit title is written to, with a warning', async () => {
+      // 2.2.x wrote to Second here while validating Sheet1. The silence was the bug; the write
+      // was not, and a fix release may not turn a working call into a failure. So the write
+      // stays and the contradiction is now said out loud. Refusing it is held for 3.0.0.
       await gsheet.addWorksheet('Second');
-      const error = await rejection(() => gsheet.updateData([['x']], { worksheetTitle: TITLE, range: `Second!A1` }));
-      expect(error.message).to.equal(`range "Second!A1" targets worksheet "Second" but worksheetTitle is "${TITLE}"`);
-      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('');
+      const said = await stderrOf(() => gsheet.updateData([['x']], { worksheetTitle: TITLE, range: `Second!A1` }));
+      expect(said).to.contain(`range "Second!A1" targets worksheet "Second" but worksheetTitle is "${TITLE}"; writing to "Second", as 2.2.x did`);
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('x');
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('');
     });
 
     it('2.2.x: an unquoted range worksheet resolves to the remembered sheet but writes where the range says', async () => {

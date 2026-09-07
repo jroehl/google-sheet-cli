@@ -40,6 +40,27 @@ const rejection = async (fn: () => Promise<any>): Promise<any> => {
   throw new Error('expected the call to reject, but it resolved');
 };
 
+/**
+ * Run a call and hand back everything the library wrote to stderr while it ran
+ *
+ * @param {() => Promise<any>} fn
+ * @returns {Promise<string>}
+ */
+const stderrOf = async (fn: () => Promise<any>): Promise<string> => {
+  const original = process.stderr.write;
+  let captured = '';
+  (process.stderr as any).write = (chunk: any): boolean => {
+    captured += String(chunk);
+    return true;
+  };
+  try {
+    await fn();
+  } finally {
+    (process.stderr as any).write = original;
+  }
+  return captured;
+};
+
 describe('grid growth (#611)', () => {
   const fake = new FakeSheets();
   let gsheet: GoogleSheet;
@@ -171,9 +192,14 @@ describe('grid growth (#611)', () => {
     expect(error.message).to.equal(`data (3x3) does not fit range '${FULL}'!A1:B2`);
   });
 
-  it('rejects a range whose worksheet contradicts worksheetTitle', async () => {
-    const error = await rejection(() => gsheet.updateData([['a']], { worksheetTitle: FULL, range: `'Other'!A1` }));
-    expect(error.message).to.equal(`range "'Other'!A1" targets worksheet "Other" but worksheetTitle is "${FULL}"`);
+  it('warns, then writes to the range worksheet, when it contradicts worksheetTitle', async () => {
+    // 2.2.0 wrote to the range's sheet and said nothing. 2.3.0 says which one wins and writes
+    // to the same place; refusing the call is held for 3.0.0 (test-docs/revive-v3.md).
+    await gsheet.addWorksheet('Other');
+    const said = await stderrOf(() => gsheet.updateData([['a']], { worksheetTitle: FULL, range: `'Other'!A1` }));
+    expect(said).to.contain(`range "'Other'!A1" targets worksheet "Other" but worksheetTitle is "${FULL}"; writing to "Other", as 2.2.x did`);
+    expect(fake.cell(SPREADSHEET_ID, 'Other', 'A1')).to.equal('a');
+    expect(fake.cell(SPREADSHEET_ID, FULL, 'A1')).to.equal('A1');
   });
 
   it('does nothing, successfully, when there are no rows to write', async () => {

@@ -262,14 +262,21 @@ export default class GoogleSheet {
     // Which worksheet this call resolves to follows getData: a quoted title inside the range
     // wins, an unquoted one does not, because that is what 2.2.0 did.
     const { worksheetTitle: rangeTitle, quoted } = options.range ? rangeWorksheet(options.range) : { worksheetTitle: undefined, quoted: false };
-    const targetTitle = (quoted ? rangeTitle : undefined) || options.worksheetTitle;
-    if (!targetTitle) throw 'Specify worksheetTitle';
-    // The mismatch check ignores quoting, though. Whichever way the range spelled it, a caller
-    // who named one worksheet and a range naming another has said two contradictory things, and
-    // writing to the one they did not name is the failure worth refusing.
-    if (rangeTitle && namedTitle && rangeTitle !== namedTitle) {
-      throw new Error(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"`);
+
+    // A caller who names one worksheet and a range naming another has said two contradictory
+    // things, whichever way the range spelled it. 2.2.0 resolved that silently in the range's
+    // favour, because getRange hands the range to the API untouched, and a fix release may not
+    // turn a call that worked into a failure. So: say which one wins, then do what 2.2.0 did.
+    // Refusing the call outright is held for 3.0.0 (see test-docs/revive-v3.md).
+    const contradicted = Boolean(rangeTitle && namedTitle && rangeTitle !== namedTitle);
+    if (contradicted) {
+      warn(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"; writing to "${rangeTitle}", as 2.2.x did`);
     }
+
+    // The range's worksheet is where the write lands whenever it won, so it is also the one to
+    // resolve and to grow. Growing the other one would add rows to a sheet nobody wrote to.
+    const targetTitle = (quoted || contradicted ? rangeTitle : undefined) || options.worksheetTitle;
+    if (!targetTitle) throw 'Specify worksheetTitle';
     if (!Array.isArray(data) || !data.every(Array.isArray)) {
       throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
     }
