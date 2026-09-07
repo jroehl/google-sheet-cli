@@ -5,7 +5,7 @@ export default class AppendData extends Command {
   static description = 'Append cells with the specified data after the last row in starting col';
 
   static examples = [
-    `$ gsheet data:append --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle> --data='[["1", "2", "3"]]'
+    `$ gsheet data:append --spreadsheetId=<spreadsheetId> --worksheetTitle=<worksheetTitle> '[["1", "2", "3"]]'
 
 Data successfully appended to "<worksheetTitle>"
 `,
