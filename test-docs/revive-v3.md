@@ -763,3 +763,195 @@ emits byte-for-byte what 2.2.x emitted, which is the property the whole vendored
 verified against. 3.14.1 is end of life, so a dependency bot or a later reader will see it as
 neglect: it is a deliberate compatibility pin, and moving it means re-running the table comparison
 in this document, not just changing the version.
+
+## Step 14 — the wire, before and after the client swap
+
+Written in Step 16: Step 14 recorded all of this in its task report and added no section here, which
+breaks this file's per-step convention. The report does not ship; this does.
+
+`googleapis` 118 was replaced by `@googleapis/sheets` 14. The auth stack under it moved with it:
+
+```
+gaxios              5.1.3   →  7.1.3
+google-auth-library 8.9.0   →  10.5.0
+googleapis-common   6.0.4   →  8.0.3
+gtoken              6.1.2   →  8.0.0
+```
+
+(Read out of `package-lock.json` at `235bbbe` and at HEAD. The fake's comment credited gtoken **5**
+for the old endpoint; the base resolves 6.1.2. Corrected in Step 16.)
+
+**The Sheets request sequence is unchanged.** Step 14 drove 24 scenarios covering all ten public
+methods through `test/fake-sheets.ts` and recorded `{method, url, body}` for every request, at the
+base commit, after the swap and after the `Error` change; its reviewer repeated the exercise from a
+reconstructed base with the old `googleapis` installed. Same count, same order, same method, same
+URL, same query string, same body, same returned shapes, same `GaxiosError` surface, in every one.
+
+What did change is the token request and the headers. Recorded in Step 16 by intercepting
+`https.request` under each client in turn and printing what it was actually handed — an independent
+run, not a re-read of the report:
+
+```
+2.x   POST https://www.googleapis.com/oauth2/v4/token
+      scope           https://spreadsheets.google.com/feeds/
+      Content-Type    application/x-www-form-urlencoded
+      Accept-Encoding gzip,deflate
+      Accept          application/json
+      User-Agent      google-api-nodejs-client/8.9.0
+
+3.x   POST https://oauth2.googleapis.com/token
+      scope           https://www.googleapis.com/auth/spreadsheets
+      Content-Type    application/x-www-form-urlencoded;charset=UTF-8
+      Accept-Encoding gzip, deflate, br
+      Accept          application/json
+      User-Agent      google-api-nodejs-client/10.5.0
+```
+
+and on the Sheets call itself, `GET https://sheets.googleapis.com/v4/spreadsheets/<id>` both times:
+
+```
+2.x   Accept application/json   Accept-Encoding gzip   x-goog-api-client gdcl/6.0.4 gl-node/…
+3.x   Accept */*                Accept-Encoding gzip   x-goog-api-client gdcl/8.0.3 gl-node/…
+```
+
+Google ignores all of it. The endpoint is the one operational consequence: an egress allowlist
+naming only `www.googleapis.com` has to gain `oauth2.googleapis.com`, or the first token fetch
+fails and nothing else runs. `sheets.googleapis.com` is unchanged. Both halves are in the README's
+migration section.
+
+**The scope and who has to re-grant it.** `https://spreadsheets.google.com/feeds/` (the retired
+Sheets v3 feed scope, which v4 still accepted for a service account minting its own token) became
+`https://www.googleapis.com/auth/spreadsheets`. A service account that was shared onto a
+spreadsheet from the Sheets UI needs nothing: it signs its own assertion for whatever scope it
+asks for, and the sharing is what grants the access. A service account used through Workspace
+**domain-wide delegation** is the exception — the allowed-scope list lives in the Admin console,
+keyed by the client ID, and until an administrator adds the new scope every call returns 401.
+Nothing here can prove that against a real Workspace tenant; it follows from how delegation is
+authorised, and it is the one line in the migration notes that could cost a user a whole outage.
+
+**`skipLibCheck: true` in `tsconfig.json`.** Required, not tidying: gtoken 8 is `"type": "module"`
+and names its CommonJS types `.d.ts`, so TypeScript classifies them as ESM and `tsc` fails with
+TS1479 on `google-auth-library`'s `jwtclient.d.ts`. Correct at runtime (its `exports.require`
+condition points at a real `.cjs`), unfixable from here.
+
+**The `./sheet` subpath and what the `exports` map seals.** Re-verified in Step 16 against a
+consumer project with the package linked in, on Node 24.11.1:
+
+```
+google-sheet-cli                            OK    lib/index.js
+google-sheet-cli/sheet                      OK    lib/lib/google-sheet.js
+google-sheet-cli/lib/lib/google-sheet       OK    lib/lib/google-sheet.js   (the action's path)
+google-sheet-cli/lib/lib/google-sheet.js    OK    lib/lib/google-sheet.js
+google-sheet-cli/package.json               OK
+google-sheet-cli/oclif.manifest.json        FAIL  ERR_PACKAGE_PATH_NOT_EXPORTED
+```
+
+The manifest was reachable before `exports` existed. Nothing in this repo or the action reads it,
+but it is a 3.0.0 surface change and is named in the migration notes rather than left to be found.
+
+TypeScript resolution, same consumer, `tsc --noEmit` over one file importing the subpath and one
+importing the deep path:
+
+```
+moduleResolution node16   exit 0
+moduleResolution node10   TS2307 on 'google-sheet-cli/sheet' only; the deep path resolves
+                          ("There are types at …/lib/lib/google-sheet.d.ts, but this result could
+                           not be resolved under your current 'moduleResolution' setting.")
+```
+
+So the subpath needs `node16`, `nodenext` or `bundler` on the consumer side. That is why the deep
+path is kept working by the two `./lib/*` patterns instead of being sealed with everything else.
+
+## Step 15 — what the offline command layer catches, and what slips
+
+Written in Step 16, for the same reason as Step 14's section.
+
+`test/commands/offline.test.ts` stubs `src/lib/factory` and drives every command's `--help` plus a
+stubbed `data:get` and two failing `data:update` calls, so the oclif 5 flag surface is a pull-request
+gate for the first time. The offline suite went 165 → 180.
+
+Its reviewer ran 13 of its own mutations rather than repeating the implementer's two. Recorded here
+because the honest half is the half that gets lost:
+
+- **Caught**: a renamed, dropped or added flag; a changed short character; required-ness; a changed
+  default; an env binding; integer coercion; the vendored table's header capitalisation; the stdout
+  channel for `--rawOutput`; a tenth command appearing.
+- **Slips**: the bodies of the seven commands whose run paths are not stubbed; user-facing message
+  text; generated descriptions; the non-raw return value.
+
+Two known fragilities, deferred rather than fixed: the stub is cast in a way that turns off the
+structural check on its shape, and the `--help` expectations are coupled to `@oclif/plugin-help`'s
+exact rendering, so a grouped dependabot bump of the help plugin can turn the suite red with no
+behaviour change. If that happens, read the diff before "fixing" the test — the rendering moving is
+not the same as a flag moving.
+
+Two pins are deliberately behind the current major and should move in step with the action
+repository, not unilaterally: `actions/checkout` and `actions/setup-node` at v5 while v7 is current,
+and `codeql-action` at v3 while v4 exists. Both lines were still receiving releases when they were
+pinned.
+
+## Step 16 — publishing 3.0.0, and the `v2` dist-tag
+
+The documentation is written; every step below is the repository owner's, and each push needs their
+confirmation for that specific push.
+
+**Order matters in one place only, and it is step 2.** The `v2` dist-tag has to exist *before*
+3.0.0 is published. The moment 3.0.0 lands, `latest` moves to it, and a 2.x user running
+`npm install google-sheet-cli` gets a package their Node cannot run. With `v2` already pointing at
+2.3.0, `npm install google-sheet-cli@v2` — which is what the README's migration section tells them
+to do — is true from the first second.
+
+1. **Confirm 2.3.0 is on npm.** `npm view google-sheet-cli version` prints `2.3.0`. Steps 4-7 have to
+   have shipped; 3.0.0 cannot be the release that also carries the 2.3.0 fixes to their tag.
+
+2. **Add the `v2` dist-tag, before merging anything.**
+
+   ```sh
+   npm dist-tag add google-sheet-cli@2.3.0 v2
+   npm view google-sheet-cli dist-tags        # latest: 2.3.0, v2: 2.3.0
+   ```
+
+3. **Merge `modernize` into `master` so semantic-release reads a major.** The branch carries
+   `feat!:` and `refactor!:` commits. If the merge is a squash, those subjects collapse into one
+   message and the squash message itself has to carry the marker — `feat!: …` plus a
+   `BREAKING CHANGE:` footer naming the Node 22 floor. A squash that loses the `!` cuts a minor, and
+   the version is then permanent.
+
+4. **Gate on a dry run before pushing.** With the merge made locally and nothing pushed:
+
+   ```sh
+   npx semantic-release --dry-run --no-ci
+   ```
+
+   It must say the next version is `3.0.0`. If it says `2.4.0`, step 3's commit message lost the
+   breaking marker; fix the message, do not push.
+
+5. **Push `master`.** `.github/workflows/test-and-release.yml` runs the live suite on Node 24, then
+   the `publish` job runs `semantic-release`, which publishes 3.0.0 and tags `v3.0.0`. This is the
+   first execution of the live suite since the migration, and the first execution ever of the two
+   discovery assertions described above.
+
+6. **Verify from outside the repository.**
+
+   ```sh
+   npm view google-sheet-cli version                   # 3.0.0
+   npm view google-sheet-cli dist-tags                 # latest: 3.0.0, v2: 2.3.0
+   npx google-sheet-cli@3 --help                       # on Node 24
+   # the 2.x line still runs on the old floor: --package=node@20 puts Node 20 first on PATH,
+   # so the bin script's `env node` shebang picks it up
+   npx --package=node@20 --package=google-sheet-cli@v2 -- google-sheet --help
+   ```
+
+7. **Cut the `2.x` maintenance branch.** The branch, its `.releaserc`, the workflow trigger it
+   inherits and the `semantic-release --dry-run` that gates it are written out verbatim in
+   *Step 13 — the `2.x` maintenance branch* above. Do not add that `.releaserc` before master is on
+   3.0.0: declaring a `2.x` maintenance range while master is still 2.x is the `EMAINTENANCEBRANCH`
+   failure Step 7 avoided. Until this step is done, the README's "maintained on the `2.x` branch"
+   is a promise rather than a fact.
+
+8. **Provenance is a follow-up.** `id-token: write` on the publish job and `NPM_CONFIG_PROVENANCE=true`
+   land as their own pull request *after* 3.0.0 is on npm, so that a provenance misconfiguration
+   cannot fail the release itself.
+
+Not done here, and deliberately: nothing in Step 16 merged, tagged, pushed, published or touched a
+dist-tag. Documentation only.
