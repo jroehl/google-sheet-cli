@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { sheets_v4 } from 'googleapis';
+import { sheets_v4 } from '@googleapis/sheets';
 import { SPREADSHEET_ID, testRun } from '../helper';
 
 const baseCommand = 'spreadsheet:get';

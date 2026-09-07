@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { sheets_v4 } from 'googleapis';
+import { sheets_v4 } from '@googleapis/sheets';
 import { testRun, WORKSHEET_ADD as worksheetTitle } from '../helper';
 
 const baseCommand = 'worksheet:add';
