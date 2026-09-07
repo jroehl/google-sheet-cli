@@ -10,6 +10,8 @@ A simple helper cli to interact with google sheets.
 - Writing past the last row or column of a worksheet now grows the grid first instead of failing with "exceeds grid limits", so appending to a sheet that is already full works again.
 - A `range` naming a different worksheet than `worksheetTitle` still writes to the worksheet the range names, exactly as 2.2.x did, but now says so on stderr instead of resolving the contradiction silently. Refusing the call outright is held for 3.0.0.
 - `updateData` now accepts a `range` carrying a quoted worksheet title with no `worksheetTitle` beside it, taking the worksheet from the range instead of insisting on a title the range already named. As in 2.2.x, an unquoted title inside a range does not name the worksheet.
+- A write now re-points the worksheet a `GoogleSheet` instance remembers. `updateData` resolves and fetches its target worksheet before writing, and that worksheet becomes the one a later command uses when it omits `worksheetTitle`. Before 2.3.0 only a read moved it. This is only visible when several commands share one instance, which is what the GitHub action does.
+- Each write costs one extra API read. Growing the grid means knowing how big it is, so `updateData` fetches the spreadsheet before the update, and one more request when the grid has to grow.
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/google-sheet-cli.svg)](https://npmjs.org/package/google-sheet-cli)

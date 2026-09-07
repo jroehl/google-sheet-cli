@@ -409,14 +409,15 @@ another one was touched`.
 **`getData` adopted an unquoted range's worksheet over an explicit one.** The old regex parser
 dropped an unquoted title, so `getData({ worksheetTitle: 'A', range: 'B!A1:C3' })` validated and
 remembered A; the new parser returns B, and the method overwrote with it — which also steers every
-later command, because the winner is remembered on the instance. The range's title is now adopted
-only when the caller named none. Pinned by `keeps an explicit worksheetTitle when a range
-disagrees with it` and `takes the worksheet from the range when no worksheetTitle is given`.
+later command, because the winner is remembered on the instance.
 
-One knock-on worth naming: with a *quoted* range plus an explicit `worksheetTitle`, 2.2.x let the
-range win, because the old parser did recognise quoted titles. Under the new rule the explicit
-title wins there too. That combination is a caller saying two different things in one call; the
-write path now rejects it outright, and this makes the read path stop silently picking a side.
+Round 2 fixed that by adopting the range's title only when the caller named none. **That rule was
+wrong and does not ship.** It fixed the unquoted case and broke the quoted one, where 2.2.x let
+the range win because the old regex did recognise quoted titles. Round 3 replaced it with the
+distinction 2.2.0 actually made — a quoted range title takes precedence over an explicit
+`worksheetTitle`, an unquoted one is ignored — which is what the code does today. The four
+combinations and the tests that pin them are in *quoted and unquoted range titles are not the
+same thing* below; read that section, not this paragraph, for the shipped behaviour.
 
 ### Live coverage added in round 2
 
