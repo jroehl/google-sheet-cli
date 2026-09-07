@@ -727,3 +727,39 @@ runCommand(['data:update', '-s', 'x', '-t', 'y', '"not json"'])  // → the JSON
 The command suite is safe as written — `JSON.stringify` emits no spaces and the worksheet titles
 are generated without them — but anything added later that passes a value with a space in it has
 to quote it.
+
+## Step 13 — two more lines for the 3.0.0 release notes
+
+Step 16 writes the "Migrating from 2.x" section. Beside the Node 22 floor, the `bin/run.js` and
+`bin/dev.js` paths and errors becoming `Error` instances, two things found during the migration
+belong there and would otherwise be lost.
+
+**`help`'s argument is rendered differently.** `@oclif/plugin-help` 7 declares the argument as a
+variadic, so the usage line and the docs move from
+
+```
+  $ google-sheet help [COMMANDS] [-n]
+
+ARGUMENTS
+  COMMANDS  Command to show help for.
+```
+
+to
+
+```
+  $ google-sheet help [COMMAND...] [-n]
+
+ARGUMENTS
+  [COMMAND...]  Command to show help for.
+```
+
+Nothing about invoking it changes — `google-sheet help data:get` works exactly as before — but the
+strings are in `docs/help.md` and in anyone's screenshots, so the change is worth naming rather
+than leaving to be discovered.
+
+**`js-yaml` is pinned to 3.x on purpose.** `src/lib/table.ts` calls `safeDump`, which 4.x renamed
+to `dump` as part of making the safe schema the default. The pin exists so `data:get --output=yaml`
+emits byte-for-byte what 2.2.x emitted, which is the property the whole vendored table was
+verified against. 3.14.1 is end of life, so a dependency bot or a later reader will see it as
+neglect: it is a deliberate compatibility pin, and moving it means re-running the table comparison
+in this document, not just changing the version.

@@ -6,10 +6,9 @@ import GoogleSheet from './google-sheet';
  * The commands used to call `new GoogleSheet()` inline, which left a test no way to run one
  * without a Google service account. Tests replace this export by import
  * (`factory.createGoogleSheet = () => fake`), so there is deliberately no environment variable
- * or other production switch that changes what a real run gets.
+ * or other production switch that changes what a real run gets. It is a named export only: a
+ * default export is bound at import and is the one shape a test could not replace.
  *
  * @returns {GoogleSheet}
  */
 export const createGoogleSheet = (): GoogleSheet => new GoogleSheet();
-
-export default createGoogleSheet;

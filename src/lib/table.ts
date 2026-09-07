@@ -3,12 +3,30 @@
  *
  * `@oclif/core` 2 shipped these as `ux.table` and `ux.table.flags()`. Core 4 dropped both and
  * core 5 has no replacement that keeps the flags (`@oclif/table` renders a different, boxed
- * table and brings React with it), so the implementation is carried here verbatim from
- * `@oclif/core@2.8.11` (MIT, same project) to keep `data:get` printing what it printed on
- * 2.2.x, flag for flag and column for column. It is not meant to grow: it is the 2.x behaviour
- * frozen in place.
+ * table and brings React with it), so the implementation is carried here from
+ * `@oclif/core@2.8.11` to keep `data:get` printing what it printed on 2.2.x, flag for flag and
+ * column for column. It is not meant to grow: it is the 2.x behaviour frozen in place.
+ *
+ * Derived from https://github.com/oclif/core/blob/v2.8.11/src/cli-ux/styled/table.ts
+ *
+ *   Copyright (c) 2020, Salesforce.com, Inc.
+ *
+ *   Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+ *   and associated documentation files (the "Software"), to deal in the Software without
+ *   restriction, including without limitation the rights to use, copy, modify, merge, publish,
+ *   distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+ *   Software is furnished to do so, subject to the following conditions:
+ *
+ *   The above copyright notice and this permission notice shall be included in all copies or
+ *   substantial portions of the Software.
+ *
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+ *   BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+ *   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-import { Flags } from '@oclif/core';
+import { Flags, settings } from '@oclif/core';
 import chalk from 'chalk';
 import { safeDump } from 'js-yaml';
 import { orderBy } from 'natural-orderby';
@@ -53,9 +71,13 @@ const capitalize = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.sli
 
 const sumBy = <T>(arr: T[], fn: (i: T) => number): number => arr.reduce((sum, i) => sum + fn(i), 0);
 
-/** `@oclif/core`'s `stdtermwidth`, read per call so a resized terminal is honoured. */
+/**
+ * `@oclif/core`'s `stdtermwidth`, including the `settings.columns` fallback (`global.oclif.columns`)
+ * that OCLIF_COLUMNS overrides. Read per call rather than once at module load, so a resized
+ * terminal is honoured; that is the one deliberate difference from core 2.
+ */
 const stdtermwidth = (): number => {
-  const columns = Number.parseInt(process.env.OCLIF_COLUMNS!, 10);
+  const columns = Number.parseInt(process.env.OCLIF_COLUMNS!, 10) || settings.columns;
   if (columns) return columns;
   if (!process.stdout.isTTY) return 80;
   const width = process.stdout.getWindowSize()[0];
