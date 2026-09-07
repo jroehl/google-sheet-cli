@@ -94,7 +94,7 @@
     "version": "oclif readme --multi && sh ./bin/clean.sh && git add README.md docs/*.md",
     "prepack": "npm run build && oclif manifest && oclif readme --multi",
     "test": "TS_NODE_PROJECT=test/tsconfig.json nyc mocha \"test/**/*.test.ts\"",
-    "test:unit": "TS_NODE_PROJECT=test/tsconfig.json mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 --forbid-only --ignore test/google-sheet.test.ts \"test/*.test.ts\" \"test/commands/offline.test.ts\"",
+    "test:unit": "TS_NODE_PROJECT=test/tsconfig.json mocha --no-config --require ts-node/register --require source-map-support/register --timeout 15000 --forbid-only --ignore test/google-sheet.test.ts \"test/*.test.ts\" \"test/commands/offline.test.ts\" \"test/commands/output.test.ts\"",
     "semantic-release": "semantic-release",
     "prepare": "husky",
     "cleanup": "bin/clear-testsheet.sh"

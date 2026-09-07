@@ -185,7 +185,19 @@ export default abstract class extends Command {
   }
 
   async catch(err: Error) {
+    // `ux.action.start()` replaces process.stdout.write and process.stderr.write with buffering
+    // stubs, and only `stop()` puts them back and flushes. An error thrown while the spinner is
+    // running is therefore written into a buffer nobody empties, and the process exits with the
+    // right code and nothing printed. oclif's own `Command.catch` stops the action for exactly
+    // this reason; overriding it took that away, and `@oclif/core` 2's process-exit hook, which
+    // used to flush the buffer regardless, is gone in 5. Stopping an action that was never
+    // started returns immediately, so this is correct on every path into `catch` - a parse
+    // failure, a credential failure, or a command that already called `stop()`.
+    try {
+      ux.action.stop();
+    } catch {
+      // a rendering failure must never swallow the error we are here to report
+    }
     this.error(err, { exit: 1 });
-    // handle any error from the command
   }
 }
