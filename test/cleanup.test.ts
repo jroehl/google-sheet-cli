@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 
 /**
  * bin/clear-testsheet.sh used to delete every worksheet but one, on a spreadsheet the

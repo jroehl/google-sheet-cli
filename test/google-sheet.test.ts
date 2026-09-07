@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 import { google, sheets_v4 } from 'googleapis';
 import { normalizeCredentials } from '../src/lib/credentials';
 import GoogleSheet from '../src/lib/google-sheet';

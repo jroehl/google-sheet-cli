@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 import { aToCol, colToA, getLongestArray, getRange, parseRange, requiredGrid } from '../src/lib/utils';
 
 describe('lib', () => {

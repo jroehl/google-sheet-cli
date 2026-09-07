@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 import { testRun, DATA_UPDATE as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:update';

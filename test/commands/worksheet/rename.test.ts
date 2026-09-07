@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 import { sheets_v4 } from 'googleapis';
 import { WORKSHEET_RENAMED as newWorksheetTitle, testRun, WORKSHEET_RENAME as worksheetTitle } from '../helper';
 

@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 import { RAW_DATA, testRun, DATA_GET as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:get';
