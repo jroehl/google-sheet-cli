@@ -194,7 +194,7 @@ describe('grid growth (#611)', () => {
 
   it('warns, then writes to the range worksheet, when it contradicts worksheetTitle', async () => {
     // 2.2.0 wrote to the range's sheet and said nothing. 2.3.0 says which one wins and writes
-    // to the same place; refusing the call is held for 3.0.0 (test-docs/revive-v3.md).
+    // to the same place. 3.0.0 keeps it a warning rather than a refusal (test-docs/revive-v3.md).
     await gsheet.addWorksheet('Other');
     const said = await stderrOf(() => gsheet.updateData([['a']], { worksheetTitle: FULL, range: `'Other'!A1` }));
     expect(said).to.contain(`range "'Other'!A1" targets worksheet "Other" but worksheetTitle is "${FULL}"; writing to "Other", as 2.2.x did`);

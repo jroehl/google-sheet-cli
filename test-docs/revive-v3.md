@@ -533,7 +533,7 @@ node@18` is blocked by the sandbox network allowlist (`deny network-outbound nod
 path as Node 20, which passes — but that is an argument, not a run. The Node 18 leg is first
 verified by CI.
 
-## Final review — R28: the contradiction warns in 2.3.0, and throws in 3.0.0
+## Final review — R28: the contradiction warns in 2.3.0, and keeps warning in 3.0.0
 
 Round 3 shipped a hard refusal for the case where the caller passes an explicit `worksheetTitle`
 and a `range` naming a different worksheet:
@@ -976,3 +976,119 @@ to do — is true from the first second.
 
 Not done here, and deliberately: nothing in Step 16 merged, tagged, pushed, published or touched a
 dist-tag. Documentation only.
+
+## Step 16 fix wave — the swallowed error, the column origin, and the gate that missed both
+
+Two reviews of `bf4216e..81ef740` came back "ship with fixes". What follows is what was measured,
+not what was reasoned.
+
+### Every cli error message was being swallowed
+
+A failing command exited 1 and printed nothing at all unless `-r/--rawOutput` was given.
+`ux.action.start()` replaces `process.stdout.write` and `process.stderr.write` with buffering
+stubs and only `stop()` puts them back and flushes; `@oclif/core` 2 flushed that buffer from a
+`process.once('exit')` hook (`lib/cli-ux/index.js`, calling `config.action.stop()` with no
+argument), core 5 removed the hook, and `src/lib/base-class.ts` overrides oclif's own
+`Command.catch`, which calls `ux.action.stop()` for exactly this reason. So the text
+`Errors.handle` wrote went into a buffer nobody emptied. `-r` escaped it because it is the one
+mode that never starts a spinner.
+
+Measured on the built binary, ten runs each, before and after:
+
+```
+                                        before      after
+bad JSON data          (spinner)         0/10       10/10
+non-nested data        (spinner)         0/10       10/10
+no worksheetTitle      (spinner)         0/10       10/10
+missing required flag  (pre-spinner)    10/10       10/10
+unknown command        (pre-spinner)    10/10       10/10
+   … and each of the five again with -r  10/10      10/10
+```
+
+Exit codes were 1 (and 2 for an unknown command) throughout, before and after. `bin/dev.js`
+behaves identically to `bin/run.js` on all of it.
+
+The stop is unconditional rather than routed through this class's own `stop()`, which is gated on
+`rawOutput`: `ActionBase.stop()` returns immediately when no task is running, so calling it on a
+path that never started a spinner is a genuine no-op — read in
+`node_modules/@oclif/core/lib/ux/action/base.js` and pinned by a test asserting no stray "done"
+appears on a parse failure. `catch` is the only way out of a command that can leave the stubs
+installed: every command pairs `this.start(...)` with `this.stop()` on the success path, nothing
+calls `this.exit()` or `process.exit()`, and the credential prompts run in `init()` before any
+spinner exists.
+
+The message that now appears is 2.2.0's, `Updating data... done` followed by the error, because
+2.2.0's exit hook also called `stop()` with the default argument. oclif's own `catch` would have
+printed a red `!` instead; that was never what this cli did, since the override replaced
+`Command.catch` on core 2 as well.
+
+### Why nothing caught it, and what does now
+
+`test/commands/offline.test.ts` drives commands through `@oclif/test`'s `runCommand`, which hands
+back the thrown error and never calls `Errors.handle`. Nothing in the suite looked at a terminal,
+so a defect where the exit code and the error object are both right and only the rendering is gone
+was invisible. `.github/workflows/test-and-release.yml` gated pull requests on `npm run test:unit`
+plus `./bin/run.js --help`, a success path. That is the whole reason this reached a final review.
+
+Two gates now exist, and both were watched failing with the fix reverted and the binary rebuilt:
+
+```
+npm run test:unit                     exit 4, 187 passing, 4 failing
+the workflow's "cli smoke test" step   exit 1, "::error::the cli exited non-zero but
+                                       printed no error message"
+```
+
+and both go green when it is restored. The smoke step's script was extracted from the YAML with a
+parser rather than retyped, so what ran locally is the text the runner will execute. Neither the
+test nor the step needs credentials: `authorize` only constructs a JWT client, the token is
+fetched lazily on the first API call, and the commands they drive fail before any request. So both
+run on a fork pull request.
+
+### `getData` with no `minCol`
+
+`getData({ worksheetTitle })` and a whole-worksheet quoted range threw `col has to be greater than
+1` on 2.2.0, on 2.3.0 and on this branch. `getRange` resolves an absent `minCol` to
+`colToA(minCol || 1)`, so the request went to A1; two lines in `getData` said `minCol || 0`, so the
+loop naming unlabelled columns asked for `colToA(0)`. The cli never reached it (`data:get` defaults
+`--minCol` to 1), which is also why the regression suite never reached it.
+
+Both lines now read the origin the way the range that was actually fetched reads it. The answer
+that produces is not merely "not a throw": an omitted `minCol` and an explicit `minCol: 1` issue
+the identical request, so the identical result is the only answer consistent with the request that
+was sent. That equality is asserted directly, including on an empty worksheet, where the count of
+generated headers carried the same off-by-one.
+
+Measured by driving published 2.2.0 and this branch through `test/fake-sheets.ts` over 21 `getData`
+shapes — explicit `minCol` from 0 to 3, bounded and anchor ranges, quoted and unquoted titles,
+`hasHeaderRow` with and without `minRow`, an empty worksheet, an unknown worksheet, no
+`worksheetTitle` at all. The OAuth token request is normalised away, because its endpoint and scope
+moved with the `@googleapis/sheets` swap and are identical on every call; everything else is
+compared verbatim.
+
+```
+identical 17   different 0   unblocked 4   of 21
+```
+
+For each of the four unblocked shapes the Sheets requests are the ones 2.2.0 had already sent
+before it threw, and the result equals the same call with `minCol: 1`. One regression case pinned
+the old throw and is replaced by two pinning the new behaviour; both fail against the unfixed code.
+
+### Two release-script orderings
+
+`package.json`'s `version` script ran `oclif readme --multi` before anything built `lib/`, and
+semantic-release runs `npm version` during *prepare*, before `npm publish` fires `prepack`.
+Measured with `lib/` removed: oclif warns `No compiled source found at lib`, the README's command
+list loses `data`, `spreadsheet` and `worksheet` and keeps only `help`, and the script stages that.
+It exits 0 and `prepack` regenerates the file correctly before packing, so the published tarball is
+right today — it stops being right the day `@semantic-release/git` is added. The script now builds
+first; the same run then leaves `README.md` and `docs/` byte-identical, and `npm pack`'s README is
+byte-identical to the committed one.
+
+`bin/clean.sh` quoted its glob so it never expanded and relied on an unquoted expansion downstream,
+and used `sed -i` in the form only GNU sed accepts, which is what the `gsed` branch was working
+around. It now expands the glob as a glob, quotes every path at the point of use, derives `docs/`
+from its own location rather than the caller's working directory, and edits through a temporary
+file so no sed dialect test is needed. Verified against the generator's raw output: old and new
+scripts produce byte-identical files, the new one also from a directory whose name contains a
+space and with the working directory elsewhere, and `oclif readme --multi && sh ./bin/clean.sh`
+still reproduces the committed `README.md` and `docs/` exactly.

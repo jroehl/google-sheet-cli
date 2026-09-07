@@ -423,7 +423,7 @@ describe('google-sheet regression', () => {
     // The same four combinations as getData. Resolution follows getData - a quoted title in the
     // range wins, an unquoted one does not - but a range that contradicts an explicit title
     // wins whichever way it spelled the title, and only says so on stderr (2.2.x wrote there
-    // silently; the refusal is held for 3.0.0).
+    // silently, and 3.0.0 keeps the warning rather than refusing).
 
     it('2.2.x: a quoted range worksheet is written to, even after another one was touched', async () => {
       // the action runs every command through one shared instance, so the title left over from
@@ -444,7 +444,7 @@ describe('google-sheet regression', () => {
     it('2.2.x: an unquoted range worksheet that contradicts the explicit title is written to, with a warning', async () => {
       // 2.2.x wrote to Second here while validating Sheet1. The silence was the bug; the write
       // was not, and a fix release may not turn a working call into a failure. So the write
-      // stays and the contradiction is now said out loud. Refusing it is held for 3.0.0.
+      // stays and the contradiction is now said out loud. 3.0.0 does not refuse it either.
       await gsheet.addWorksheet('Second');
       const said = await stderrOf(() => gsheet.updateData([['x']], { worksheetTitle: TITLE, range: `Second!A1` }));
       expect(said).to.contain(`range "Second!A1" targets worksheet "Second" but worksheetTitle is "${TITLE}"; writing to "Second", as 2.2.x did`);

@@ -49,6 +49,8 @@ The subpath is declared through the package's `exports` map, so a TypeScript con
 
 Declaring `exports` at all closes off everything it does not name. `google-sheet-cli`, `google-sheet-cli/sheet`, `google-sheet-cli/lib/*` (with or without `.js`) and `google-sheet-cli/package.json` resolve; anything else now fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`. The one path known to be closed this way is `google-sheet-cli/oclif.manifest.json`. Nothing in this project or its GitHub action reads it, but a consumer that did will have to stop.
 
+Separately, `google-sheet-cli/lib/lib/types` is gone (`MODULE_NOT_FOUND`). It was a second, stale copy of the `GoogleSheetCli` type namespace that nothing imported — the live one has always been declared in `google-sheet.ts` and is re-exported from the package root and from `google-sheet-cli/sheet`.
+
 ### Errors are `Error` instances
 
 Eight places used to `throw` a bare string. They now throw an `Error` carrying byte-identical text:
@@ -131,6 +133,12 @@ The same plugin also lays every command's `--help` out slightly differently: a f
 ### `js-yaml` is pinned to 3.x on purpose
 
 `data:get --output=yaml` is rendered by a copy of `@oclif/core@2.8.11`'s table, carried in `src/lib/table.ts` because core 5 has no `ux.table` and no successor that keeps the eight table flags. That code calls `safeDump`, which js-yaml 4 renamed to `dump`. The pin exists so the yaml output stays byte-for-byte what 2.2.x emitted, which is the property the whole vendored table was verified against. js-yaml 3.14.1 is end of life; this is a deliberate compatibility pin, not neglect, and moving it means re-running that output comparison, not just changing the version.
+
+### `getData` without `minCol` returns instead of throwing
+
+On 2.x, `getData({ worksheetTitle: 'Sheet1' })` threw `col has to be greater than 1`, and so did a whole-worksheet quoted range, `getData({ range: "'Sheet1'!" })`. The read itself was correct — it started at A1 — but the code that names unlabelled columns counted from column 0. The cli never reached it, because `data:get` defaults `--minCol` to 1; a library caller, and the GitHub action's `range` option, did.
+
+Both now return what the same call with an explicit `minCol: 1` returns, field for field: the identical request was already being sent, so the identical result is the only defensible answer. Nothing that returned a result before returns a different one — measured against published 2.2.0 across 21 `getData` shapes, 17 identical and 4 previously throwing.
 
 ### Two 2.2.x calls that changed in 2.3.0
 
@@ -257,7 +265,7 @@ For anything scripted, hand the key over with `--credentialsFile` or the environ
 
 ## Build with
 
-- [googleapis](https://github.com/googleapis/googleapis) - The node module used for manipulating the google sheet
+- [@googleapis/sheets](https://github.com/googleapis/google-api-nodejs-client/tree/main/src/apis/sheets) - The node module used for manipulating the google sheet. 2.x used the whole `googleapis` bundle; see [Migrating from 2.x](#migrating-from-2x)
 - [oclif](https://oclif.io) - The node module used to create the cli
 - [semantic-release](https://github.com/semantic-release/semantic-release) - for releasing new versions
 - [typescript](https://www.typescriptlang.org)

@@ -277,7 +277,9 @@ export default class GoogleSheet {
     // things, whichever way the range spelled it. 2.2.0 resolved that silently in the range's
     // favour, because getRange hands the range to the API untouched, and a fix release may not
     // turn a call that worked into a failure. So: say which one wins, then do what 2.2.0 did.
-    // Refusing the call outright is held for 3.0.0 (see test-docs/revive-v3.md).
+    // 3.0.0 keeps the warning rather than turning it into a refusal: a refusal would break a
+    // call every 2.x release completed, and every other break in that major is a platform
+    // move. See test-docs/revive-v3.md for the decision.
     const contradicted = Boolean(rangeTitle && namedTitle && rangeTitle !== namedTitle);
     if (contradicted) {
       warn(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"; writing to "${rangeTitle}", as 2.2.x did`);
