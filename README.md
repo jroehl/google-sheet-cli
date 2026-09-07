@@ -2,6 +2,10 @@
 
 A simple helper cli to interact with google sheets.
 
+## Changes in 2.3.0
+
+- The `engines.node` floor is now `>=14`, which was always the real minimum.
+
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/google-sheet-cli.svg)](https://npmjs.org/package/google-sheet-cli)
 [![Downloads/week](https://img.shields.io/npm/dw/google-sheet-cli.svg)](https://npmjs.org/package/google-sheet-cli)
