@@ -2,6 +2,135 @@
 
 A simple helper cli to interact with google sheets.
 
+## Migrating from 2.x
+
+3.0.0 is a platform release. Every command, every flag and everything the commands print is the same as on 2.3.0, and the sequence of Sheets API calls each library method makes is unchanged — same requests, same order, same bodies. What moved is the Node floor, the module a library consumer imports, the type of the errors that are thrown, and one hostname the auth stack talks to.
+
+### Node 22 or newer
+
+`engines.node` is now `>=22`, so `google-sheet-cli@latest` needs Node 22 or newer. Node 14 through 20 are no longer supported.
+
+The 2.x line stays on npm under the `v2` dist-tag and keeps its old, low Node floor:
+
+```sh-session
+$ npm install -g google-sheet-cli@v2
+$ npx google-sheet-cli@v2 spreadsheet:get -s <spreadsheetId>
+```
+
+It is maintained on the `2.x` branch and gets fixes, not features.
+
+### The bin scripts are `bin/run.js` and `bin/dev.js`
+
+oclif 5 expects its executables to carry a file extension, so `bin/run` became `bin/run.js` and `bin/dev` became `bin/dev.js`. This only matters where something names the file by path — a checkout, a container image, a script calling `node_modules/google-sheet-cli/bin/run`. The installed `google-sheet` binary and `npx google-sheet-cli` are unaffected.
+
+### A side-effect-free `google-sheet-cli/sheet` subpath
+
+Using the library without the cli used to mean reaching into the build output:
+
+```ts
+import GoogleSheet from 'google-sheet-cli/lib/lib/google-sheet';
+```
+
+That path still works and still carries its types. 3.0.0 adds a declared one:
+
+```ts
+import GoogleSheet from 'google-sheet-cli/sheet';
+```
+
+The package root (`google-sheet-cli`) also exports oclif's `run`, so importing it loads the whole cli; `google-sheet-cli/sheet` loads the Sheets client and its auth chain and nothing else — 128 modules against 289 for the root, with no `@oclif/core` anywhere in the graph.
+
+The subpath is declared through the package's `exports` map, so a TypeScript consumer has to be on `moduleResolution` `node16`, `nodenext` or `bundler`. Under the older `node10` resolution `google-sheet-cli/sheet` does not resolve at all (`TS2307: Cannot find module`), and only the deep path does. If moving that setting is not an option, keep the deep import.
+
+### The `exports` map seals paths that used to be reachable
+
+Declaring `exports` at all closes off everything it does not name. `google-sheet-cli`, `google-sheet-cli/sheet`, `google-sheet-cli/lib/*` (with or without `.js`) and `google-sheet-cli/package.json` resolve; anything else now fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`. The one path known to be closed this way is `google-sheet-cli/oclif.manifest.json`. Nothing in this project or its GitHub action reads it, but a consumer that did will have to stop.
+
+### Errors are `Error` instances
+
+Eight places used to `throw` a bare string. They now throw an `Error` carrying byte-identical text:
+
+- `Spreadsheet "<id>" not found`
+- `Sheet "<title>" not found in "<spreadsheet>"`
+- `Option property "worksheetTitle" is required`
+- `No header row exists`
+- `Specify worksheetTitle`
+- `Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])`
+- `col has to be greater than 1`
+- `Label has to be uppercase alphabet letter but is "<label>"`
+
+The cli prints exactly what it printed before, and so does the GitHub action, which already read `err.message || err`. What breaks is a library consumer that compares the caught value to a string:
+
+```ts
+catch (err) {
+  if (err === 'Specify worksheetTitle') { … }                     // 2.x, no longer matches
+  if ((err as Error).message === 'Specify worksheetTitle') { … }  // 3.x
+}
+```
+
+### The OAuth token endpoint and the scope moved
+
+3.0.0 builds its Sheets client from `@googleapis/sheets` instead of the whole `googleapis` bundle. That brings a newer auth stack with it, and two things on the wire follow from it.
+
+The token request goes to a different host, and the assertion asks for a different scope:
+
+```
+2.x   POST https://www.googleapis.com/oauth2/v4/token   scope https://spreadsheets.google.com/feeds/
+3.x   POST https://oauth2.googleapis.com/token          scope https://www.googleapis.com/auth/spreadsheets
+```
+
+**If you run this behind an egress allowlist that names `www.googleapis.com`, add `oauth2.googleapis.com`.** `sheets.googleapis.com`, where every actual Sheets call goes, is unchanged, and so is every one of those calls.
+
+The scope change needs no action for the normal setup: a service account that was shared onto a spreadsheet the way [Step 2](#step-2-sharing-the-spreadsheet) describes keeps working, because the sharing is what grants the access and the account authorises itself for the scope. **The exception is Google Workspace domain-wide delegation.** If the service account is used through delegation, an administrator has to add `https://www.googleapis.com/auth/spreadsheets` to that client's allowed scopes in the Admin console, beside the old feeds scope. Until they do, every call comes back 401.
+
+### Request headers changed
+
+Same upgrade, same cause — the HTTP client underneath went from gaxios 5 to gaxios 7. Google ignores all of this; it is listed because it is visible to a proxy, a request log or a strict middlebox.
+
+On every Sheets call:
+
+```
+2.x   Accept: application/json
+3.x   Accept: */*
+```
+
+On the token request:
+
+```
+2.x   Content-Type: application/x-www-form-urlencoded
+      Accept-Encoding: gzip,deflate
+3.x   Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+      Accept-Encoding: gzip, deflate, br
+```
+
+The `User-Agent` and `x-goog-api-client` version strings move with the client version, as they do on any upgrade.
+
+### `help`'s argument is rendered differently
+
+`@oclif/plugin-help` 7 declares the argument as a variadic, so the usage line and `docs/help.md` move from
+
+```
+$ google-sheet help [COMMANDS] [-n]
+```
+
+to
+
+```
+$ google-sheet help [COMMAND...] [-n]
+```
+
+Nothing about invoking it changes: `google-sheet help data:get` works exactly as before. The strings are named here because they are in the generated docs and in anyone's screenshots.
+
+### `js-yaml` is pinned to 3.x on purpose
+
+`data:get --output=yaml` is rendered by a copy of `@oclif/core@2.8.11`'s table, carried in `src/lib/table.ts` because core 5 has no `ux.table` and no successor that keeps the eight table flags. That code calls `safeDump`, which js-yaml 4 renamed to `dump`. The pin exists so the yaml output stays byte-for-byte what 2.2.x emitted, which is the property the whole vendored table was verified against. js-yaml 3.14.1 is end of life; this is a deliberate compatibility pin, not neglect, and moving it means re-running that output comparison, not just changing the version.
+
+### What has not changed
+
+- Every command, flag, short character, default and argument. `data:get`'s eight table flags (`--columns`, `--sort`, `--filter`, `--csv`, `--output`, `-x/--extended`, `--no-truncate`, `--no-header`) all survive, rendering the same table.
+- The Sheets requests each library method makes, down to the query string and the body.
+- Authentication itself: service accounts, the same three ways of handing over credentials, the same `GSHEET_*` environment variables.
+- A `range` that names a different worksheet than `worksheetTitle` still warns on stderr and writes to the worksheet the range names, exactly as 2.2.x and 2.3.0 do.
+
 ## Changes in 2.3.0
 
 - The `engines.node` floor is now `>=14`, which was always the real minimum.
@@ -22,6 +151,8 @@ A simple helper cli to interact with google sheets.
 [![Test version](https://github.com/jroehl/google-sheet-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jroehl/google-sheet-cli/actions/workflows/test.yml)
 
 - [google-sheet-cli](#google-sheet-cli)
+  - [Migrating from 2.x](#migrating-from-2x)
+  - [Changes in 2.3.0](#changes-in-230)
   - [Usage as CLI](#usage-as-cli)
   - [Usage as library](#usage-as-library)
 - [Command Topics](#command-topics)
