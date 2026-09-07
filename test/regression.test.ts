@@ -595,4 +595,107 @@ describe('google-sheet regression', () => {
       expect(said).to.equal('');
     });
   });
+
+  /**
+   * The generated `(A)`, `(B)` column labels, which are also the keys of every `formatted` row
+   * and therefore reach a workflow through the GitHub action's serialised `results`.
+   *
+   * With an explicit minCol the origin is minCol and always was. With minCol absent, 2.2.x used 0,
+   * and `colToA` refuses anything below 1 - but the loop only calls it for a blank heading, so the
+   * refusal fired only at column index 0, only when `header[0]` was falsy. That splits every call
+   * in two, and the halves cannot overlap because one call has one `header[0]`:
+   *
+   *   header[0] present -> 2.2.x returned, with labels one column to the left of the cell each
+   *                        sits over, and one label too many when the read returned no rows.
+   *                        Those wrong labels are pinned below. They are output that works today.
+   *   header[0] absent  -> 2.2.x threw `col has to be greater than 1`. Pinned below too, now
+   *                        returning, with the labels the range actually has.
+   *
+   * Every expectation here was measured against published google-sheet-cli@2.2.0 driven through
+   * this same fake, not derived from the implementation. See test-docs/revive-v3.md.
+   */
+  describe('getData generated column labels', () => {
+    const RAGGED = 'Ragged';
+    const HEADER_ONLY = 'HeaderOnly';
+    const BLANK_FIRST = 'BlankFirst';
+
+    beforeEach(async () => {
+      // a header row shorter than the data under it, the commonest real shape
+      await gsheet.addWorksheet(RAGGED);
+      fake.setCells(SPREADSHEET_ID, RAGGED, 'A1', [
+        ['name', 'qty'],
+        ['widget', '3', 'extra', 'more'],
+      ]);
+      // only a header row, with a blank in the middle: a read from row 2 returns no rows at all
+      await gsheet.addWorksheet(HEADER_ONLY);
+      fake.setCells(SPREADSHEET_ID, HEADER_ONLY, 'A1', [['h1', '', 'h3']]);
+      // a header row whose first cell is blank, which is what made 2.2.x throw
+      await gsheet.addWorksheet(BLANK_FIRST);
+      fake.setCells(SPREADSHEET_ID, BLANK_FIRST, 'A1', [
+        ['', 'b', 'c'],
+        ['1', '2', '3'],
+      ]);
+    });
+
+    it("2.2.x: keeps the off-by-one labels for a ragged header row with no minCol", async () => {
+      const data = await gsheet.getData({ worksheetTitle: RAGGED, hasHeaderRow: true });
+
+      // (B) and (C) sit over columns C and D. That is wrong, and it is what 2.2.0 returned.
+      expect(data.header).to.eql(['name', 'qty', '(B)', '(C)']);
+      expect(data.formatted).to.eql([{ name: 'widget', qty: '3', '(B)': 'extra', '(C)': 'more' }]);
+      expect(data.rawData).to.eql([['widget', '3', 'extra', 'more']]);
+    });
+
+    it('2.2.x: keeps them with minRow, with maxCol, and through a whole-worksheet range', async () => {
+      const withMinRow = await gsheet.getData({ worksheetTitle: RAGGED, hasHeaderRow: true, minRow: 2 });
+      expect(withMinRow.header).to.eql(['name', 'qty', '(B)', '(C)']);
+
+      const withMaxCol = await gsheet.getData({ worksheetTitle: RAGGED, hasHeaderRow: true, maxCol: 3 });
+      expect(withMaxCol.header).to.eql(['name', 'qty', '(B)']);
+
+      const throughRange = await gsheet.getData({ range: `'${RAGGED}'!`, hasHeaderRow: true });
+      expect(throughRange.header).to.eql(['name', 'qty', '(B)', '(C)']);
+    });
+
+    it('2.2.x: minCol 0 is as good as absent, and an explicit minCol 1 keeps its own labels', async () => {
+      const zero = await gsheet.getData({ worksheetTitle: RAGGED, hasHeaderRow: true, minCol: 0 });
+      expect(zero.header).to.eql(['name', 'qty', '(B)', '(C)']);
+
+      // explicit minCol was never part of the broken path; 2.2.0 returned these too
+      const one = await gsheet.getData({ worksheetTitle: RAGGED, hasHeaderRow: true, minCol: 1 });
+      expect(one.header).to.eql(['name', 'qty', '(C)', '(D)']);
+    });
+
+    it('2.2.x: keeps them, and the extra trailing label, when the read returns no rows', async () => {
+      const bounded = await gsheet.getData({ worksheetTitle: HEADER_ONLY, hasHeaderRow: true, minRow: 2, maxCol: 4 });
+
+      // five labels for a four-column range, the same off-by-one seen in the count
+      expect(bounded.rawData).to.eql([]);
+      expect(bounded.header).to.eql(['h1', '(A)', 'h3', '(C)', '(D)']);
+
+      const unbounded = await gsheet.getData({ worksheetTitle: HEADER_ONLY, hasHeaderRow: true, minRow: 2 });
+      expect(unbounded.rawData).to.eql([]);
+      expect(unbounded.header.slice(0, 5)).to.eql(['h1', '(A)', 'h3', '(C)', '(D)']);
+      expect(unbounded.header).to.have.lengthOf(27);
+    });
+
+    it('2.2.x: keeps them across chained calls on one instance, as the action makes them', async () => {
+      await gsheet.getWorksheet(RAGGED);
+      const titleless = await gsheet.getData({ hasHeaderRow: true });
+      expect(titleless.header).to.eql(['name', 'qty', '(B)', '(C)']);
+
+      const shared: GoogleSheetCli.QueryOptions = { worksheetTitle: RAGGED, hasHeaderRow: true };
+      expect((await gsheet.getData(shared)).header).to.eql(['name', 'qty', '(B)', '(C)']);
+      expect((await gsheet.getData(shared)).header).to.eql(['name', 'qty', '(B)', '(C)']);
+    });
+
+    it('3.0.0: a blank first heading returns instead of throwing, with the right labels', async () => {
+      // 2.2.0 threw `col has to be greater than 1` here, so nothing can be depending on it
+      const data = await gsheet.getData({ worksheetTitle: BLANK_FIRST, hasHeaderRow: true });
+
+      expect(data.header).to.eql(['(A)', 'b', 'c']);
+      expect(data.formatted).to.eql([{ '(A)': '1', b: '2', c: '3' }]);
+    });
+  });
+
 });

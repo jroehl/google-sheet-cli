@@ -136,9 +136,13 @@ The same plugin also lays every command's `--help` out slightly differently: a f
 
 ### `getData` without `minCol` returns instead of throwing
 
-On 2.x, `getData({ worksheetTitle: 'Sheet1' })` threw `col has to be greater than 1`, and so did a whole-worksheet quoted range, `getData({ range: "'Sheet1'!" })`. The read itself was correct — it started at A1 — but the code that names unlabelled columns counted from column 0. The cli never reached it, because `data:get` defaults `--minCol` to 1; a library caller, and the GitHub action's `range` option, did.
+On 2.x, `getData({ worksheetTitle: 'Sheet1' })` threw `col has to be greater than 1`, and so did a whole-worksheet quoted range, `getData({ range: "'Sheet1'!" })`. The read itself was correct — it started at A1 — but the code that names unlabelled columns counted from column 0, and `colToA` refuses anything below 1. The cli never reached it, because `data:get` defaults `--minCol` to 1; a library caller and the GitHub action did.
 
-Both now return what the same call with an explicit `minCol: 1` returns, field for field: the identical request was already being sent, so the identical result is the only defensible answer. Nothing that returned a result before returns a different one — measured against published 2.2.0 across 21 `getData` shapes, 17 identical and 4 previously throwing.
+Those calls now return what the same call with an explicit `minCol: 1` returns, field for field: the identical request was already being sent, so the identical result is the only defensible answer.
+
+**Calls that already returned something return exactly what they returned before, wrong labels included.** With `hasHeaderRow` and a non-empty first heading, 2.x never reached `colToA(0)` at all — it just numbered the blank headings one column short, calling column C `(B)` and column D `(C)`, and emitting one heading too many when the read came back with no rows. Those labels are the keys of every `formatted` row, and the GitHub action serialises them into its `results`, so a workflow may be reading them today. 3.0.0 keeps them. Correcting them is a change to output that currently works and is left for a release that announces it.
+
+Measured against published 2.2.0 through the library's own HTTP fake, over 125 shapes — six worksheet fixtures (regular, ragged header, header-only, blank first heading, empty, header wider than its data) crossed with `hasHeaderRow`, `minCol` absent/0/1/2 and `minRow` absent/2, plus `maxCol`/`maxRow` variants, the four range forms, and six chained-call scenarios on one shared instance: **83 identical, 0 different, 42 previously throwing**.
 
 ### Two 2.2.x calls that changed in 2.3.0
 

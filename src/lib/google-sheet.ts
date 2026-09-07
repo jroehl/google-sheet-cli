@@ -195,15 +195,36 @@ export default class GoogleSheet {
       }
     }
 
-    // An absent minCol is column 1, not column 0: `getRange` above already reads from
-    // `colToA(minCol || 1)`, so the column these two lines describe has to start in the same
-    // place as the range that was actually fetched. They said `|| 0` instead, which made the
-    // labelling loop below ask for `colToA(0)` and throw `col has to be greater than 1` for
-    // every caller who omitted minCol - a library caller, or a whole-worksheet quoted range,
-    // never the cli, which defaults --minCol to 1. Such a call now returns exactly what the
-    // same call with an explicit `minCol: 1` returns, which is right rather than merely
-    // non-throwing: both issue the identical request.
-    let maxCol = (sanitizedOptions.maxCol ? sanitizedOptions.maxCol + 1 : 0) - (sanitizedOptions.minCol || 1);
+    // Where the generated `(A)`, `(B)` labels below start counting, and how many of them there
+    // are. With an explicit minCol it is minCol, as it always was. With minCol absent it depends
+    // on whether 2.2.x got this far at all, and the two cases are deliberately different.
+    //
+    // 2.2.x used 0 here. `colToA` refuses anything below 1, and the loop below only calls it for
+    // a blank heading, so `colToA(0)` was reached exactly when minCol was absent *and* header[0]
+    // was falsy - and only at c === 0, because for c >= 1 the argument was already at least 1.
+    // That splits every call into two populations that cannot overlap, since one call has one
+    // header[0]:
+    //
+    //   header[0] present -> 2.2.x returned a result. Its generated labels were wrong: with
+    //                        origin 0 it named column B "(A)" and column D "(C)", one column to
+    //                        the left of the cell each label sits over, and the same arithmetic
+    //                        emitted one label too many when the read returned no rows. Those
+    //                        wrong labels are the keys of the `formatted` objects, and the
+    //                        GitHub action serialises them into its `results` output, so a
+    //                        workflow may be reading them today. They are kept. Do not "fix"
+    //                        them here: correcting them is a change to output that currently
+    //                        works, which belongs in a release that announces it.
+    //   header[0] absent  -> 2.2.x threw `col has to be greater than 1` and returned nothing.
+    //                        Nothing can depend on a throw, so this is the one place free to use
+    //                        the origin the range actually has: `getRange` reads from
+    //                        `colToA(minCol || 1)`, so column 1 it is.
+    //
+    // The asymmetry is the point. It preserves everything that worked and unblocks everything
+    // that did not, and it is measured against published 2.2.0 in test-docs/revive-v3.md.
+    const returnedOn22x = Boolean(header && header[0]);
+    const labelOrigin = sanitizedOptions.minCol || (returnedOn22x ? 0 : 1);
+
+    let maxCol = (sanitizedOptions.maxCol ? sanitizedOptions.maxCol + 1 : 0) - labelOrigin;
     let maxRow = 0;
     if (values) {
       maxCol = getLongestArray(values).length;
@@ -212,7 +233,7 @@ export default class GoogleSheet {
 
     // fill missing headings
     for (let c = 0; c < maxCol; c++) {
-      header[c] = header[c] || `(${colToA(c + (sanitizedOptions.minCol || 1))})`;
+      header[c] = header[c] || `(${colToA(c + labelOrigin)})`;
     }
 
     let formatted: GoogleSheetCli.FormattedData[] = [];

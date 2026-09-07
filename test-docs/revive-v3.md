@@ -1044,34 +1044,83 @@ test nor the step needs credentials: `authorize` only constructs a JWT client, t
 fetched lazily on the first API call, and the commands they drive fail before any request. So both
 run on a fork pull request.
 
-### `getData` with no `minCol`
+### `getData` with no `minCol`, and the labels 2.2.0 got wrong
 
 `getData({ worksheetTitle })` and a whole-worksheet quoted range threw `col has to be greater than
-1` on 2.2.0, on 2.3.0 and on this branch. `getRange` resolves an absent `minCol` to
-`colToA(minCol || 1)`, so the request went to A1; two lines in `getData` said `minCol || 0`, so the
-loop naming unlabelled columns asked for `colToA(0)`. The cli never reached it (`data:get` defaults
-`--minCol` to 1), which is also why the regression suite never reached it.
+1` on 2.2.0, on 2.3.0 and on the first attempt at this wave's fix. `getRange` resolves an absent
+`minCol` to `colToA(minCol || 1)`, so the request went to A1; two lines in `getData` said
+`minCol || 0`, so the loop naming unlabelled columns asked for `colToA(0)`. The cli never reached
+it (`data:get` defaults `--minCol` to 1), which is also why the regression suite never reached it.
 
-Both lines now read the origin the way the range that was actually fetched reads it. The answer
-that produces is not merely "not a throw": an omitted `minCol` and an explicit `minCol: 1` issue
-the identical request, so the identical result is the only answer consistent with the request that
-was sent. That equality is asserted directly, including on an empty worksheet, where the count of
-generated headers carried the same off-by-one.
+**The first fix here was `|| 0` → `|| 1` on both lines, and it was wrong.** It removed the throw,
+but it also changed the answer for calls 2.2.0 had completed successfully. A re-review caught it;
+this section records what the second attempt establishes, because the reasoning is what stops it
+being "cleaned up" later.
 
-Measured by driving published 2.2.0 and this branch through `test/fake-sheets.ts` over 21 `getData`
-shapes — explicit `minCol` from 0 to 3, bounded and anchor ranges, quoted and unquoted titles,
-`hasHeaderRow` with and without `minRow`, an empty worksheet, an unknown worksheet, no
-`worksheetTitle` at all. The OAuth token request is normalised away, because its endpoint and scope
-moved with the `@googleapis/sheets` swap and are identical on every call; everything else is
-compared verbatim.
+`colToA` refuses anything below 1, and the label loop only calls it for a *blank* heading. So
+`colToA(0)` was reached exactly when `minCol` was absent **and** `header[0]` was falsy, and only at
+column index 0 — for `c >= 1` the argument was already at least 1. That splits every call into two
+populations, and they cannot overlap, because one call has one `header[0]`:
+
+| | `header[0]` present | `header[0]` absent |
+|---|---|---|
+| **2.2.0** | returned a result | threw `col has to be greater than 1` |
+| **what it means** | output that works today | nothing can depend on it |
+
+`header[0]` is present exactly when `hasHeaderRow: true` and the header row's first cell is
+non-empty. So the fix is scoped to the origin: `minCol || (header[0] ? 0 : 1)`, used for both the
+label loop and the `maxCol` arithmetic that decides how many labels there are.
+
+**2.2.0's labels in the preserved population are wrong, and are kept anyway.** Worksheet
+`HeaderOnly`, header row `A1='h1'`, `B1` blank, `C1='h3'`, read with
+`{hasHeaderRow: true, minRow: 2, maxCol: 4}` — a four-column range:
+
+| spreadsheet column | A | B | C | D | |
+|---|---|---|---|---|---|
+| header cell | `h1` | *(blank)* | `h3` | *(none)* | |
+| **2.2.0, and this branch** | `h1` | `(A)` | `h3` | `(C)` | plus a fifth entry `(D)` |
+| **what would be correct** | `h1` | `(B)` | `h3` | `(D)` | four entries |
+
+Every generated label points one column to the left of the cell it sits over, and the same
+arithmetic emits one label too many when the read returns no rows. Those labels are the keys of
+every `formatted` row, and the GitHub action serialises `formatted` into its `results` output, so a
+workflow may be reading `formatted[0]["(B)"]` today. Correcting them is a change to output that
+currently works: it is a candidate for a later release that announces it, not something to slip
+into a platform major. Where 2.2.0 threw instead, the corrected origin is used, because nothing can
+depend on a throw. The asymmetry is deliberate and `src/lib/google-sheet.ts` says so at the point
+of the code.
+
+Measured by driving published 2.2.0 and each candidate implementation through `test/fake-sheets.ts`
+over **125 shapes**: six worksheet fixtures (regular, ragged header, header-only with a blank
+middle heading, blank first heading, empty, header row wider than its data) crossed with
+`hasHeaderRow`, `minCol` absent/0/1/2 and `minRow` absent/2 — 96 shapes — plus `maxCol`/`maxRow`
+variants, the four range forms (quoted bounded, quoted anchor, whole-worksheet, unquoted), the
+degenerate shapes, and six chained-call scenarios on one shared instance. The OAuth token request
+is normalised away, because its endpoint and scope moved with the `@googleapis/sheets` swap and are
+identical on every call; the fake's internal sheetId counter is normalised because `reset()` does
+not rewind it. Everything else — Sheets requests, return values, thrown values — is compared
+verbatim.
 
 ```
-identical 17   different 0   unblocked 4   of 21
+                                       identical   different   unblocked   of
+81ef740   (L2 not fixed at all)           115           1           9      125
+first attempt (|| 0 -> || 1)               68          15          42      125
+this branch   (scoped origin)              83           0          42      125
 ```
 
-For each of the four unblocked shapes the Sheets requests are the ones 2.2.0 had already sent
-before it threw, and the result equals the same call with `minCol: 1`. One regression case pinned
-the old throw and is replaced by two pinning the new behaviour; both fail against the unfixed code.
+The scoped fix unblocks exactly the same 42 shapes as the first attempt and introduces no
+difference at all. The first attempt's 15 differences are 14 label changes it introduced plus one
+inherited from 2.3.0; `81ef740`'s single difference is that same inherited one — `appendData`
+followed by `getData`, where the branch sends one extra spreadsheet read to size the grid before
+writing, which is the documented 2.3.0 change. It appears as `different` at `81ef740` (both
+implementations throw, but the request lists differ) and inside the `unblocked` bucket afterwards;
+the harness reports that case separately rather than letting the bucket hide it.
+
+Six regression cases pin the preserved labels, including both no-row shapes, the chained-instance
+pattern the action uses, `minCol: 0` as a synonym for absent, and an explicit `minCol: 1` keeping
+its own (different, correct) labels. Five of the six fail against the first attempt. The two cases
+the first attempt added — an omitted `minCol` equalling an explicit `minCol: 1` — still hold, since
+both are `hasHeaderRow`-free and therefore in the unblocked population.
 
 ### Two release-script orderings
 
