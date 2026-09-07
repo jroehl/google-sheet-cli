@@ -1,22 +1,17 @@
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-#
-# ******** NOTE ********
-# We have attempted to detect the languages in your repository. Please check
-# the `language` matrix defined below to confirm you have the correct set of
-# supported CodeQL languages.
-#
+# Removes the worksheets our test runs leave behind on the shared test spreadsheet. What may be
+# deleted is decided by bin/cleanup-classify.js; see bin/clear-testsheet.sh.
 name: 'Cleanup'
 
 on:
   schedule:
     - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  test:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -40,9 +35,9 @@ jobs:
           unset-previous: false
           export-env: true
         env:
-          GSHEET_CLIENT_EMAIL: "op://service-account/github.actions/GSHEET_CLIENT_EMAIL"
-          GSHEET_PRIVATE_KEY: "op://service-account/github.actions/GSHEET_PRIVATE_KEY"
-          TEST_SPREADSHEET_ID: "op://service-account/github.actions/TEST_SPREADSHEET_ID"
+          GSHEET_CLIENT_EMAIL: 'op://service-account/github.actions/GSHEET_CLIENT_EMAIL'
+          GSHEET_PRIVATE_KEY: 'op://service-account/github.actions/GSHEET_PRIVATE_KEY'
+          TEST_SPREADSHEET_ID: 'op://service-account/github.actions/TEST_SPREADSHEET_ID'
 
       - name: cleanup
         run: npm run cleanup
