@@ -48,6 +48,27 @@ const rejection = async (fn: () => Promise<any>): Promise<any> => {
   throw new Error('expected the call to reject, but it resolved');
 };
 
+/**
+ * Run a call and hand back everything the library wrote to stderr while it ran
+ *
+ * @param {() => Promise<any>} fn
+ * @returns {Promise<string>}
+ */
+const stderrOf = async (fn: () => Promise<any>): Promise<string> => {
+  const original = process.stderr.write;
+  let captured = '';
+  (process.stderr as any).write = (chunk: any): boolean => {
+    captured += String(chunk);
+    return true;
+  };
+  try {
+    await fn();
+  } finally {
+    (process.stderr as any).write = original;
+  }
+  return captured;
+};
+
 describe('google-sheet regression', () => {
   const fake = new FakeSheets();
   let gsheet: GoogleSheet;
@@ -501,6 +522,32 @@ describe('google-sheet regression', () => {
       await gsheet.appendData([['first']], options);
       expect(options.minRow).to.equal(1);
       expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('first');
+    });
+
+    // appendData is getData followed by updateData over one options object. Both halves were
+    // pinned separately and both stayed green while the composition was broken, because getData
+    // filled worksheetTitle in on the caller's own object and updateData then read it back as a
+    // title the caller had passed. These pin the composition rather than the halves; the stderr
+    // check is what keeps them biting now that the contradiction warns instead of throwing.
+
+    it('2.2.x: appends through an unquoted range naming another worksheet, after one was touched', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      const options: GoogleSheetCli.QueryOptions = { range: `Second!A1` };
+      const said = await stderrOf(() => gsheet.appendData([['landed']], options));
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('landed');
+      // the caller named no worksheet, so there is nothing for the range to contradict
+      expect(said).to.equal('');
+    });
+
+    it('2.2.x: appends through a quoted range naming another worksheet, after one was touched', async () => {
+      await gsheet.addWorksheet('Second');
+      await gsheet.getWorksheet(TITLE);
+      const options: GoogleSheetCli.QueryOptions = { range: `'Second'!A1` };
+      const said = await stderrOf(() => gsheet.appendData([['landed']], options));
+      expect(fake.cell(SPREADSHEET_ID, 'Second', 'A1')).to.equal('landed');
+      expect(fake.cell(SPREADSHEET_ID, TITLE, 'A1')).to.equal('');
+      expect(said).to.equal('');
     });
   });
 });

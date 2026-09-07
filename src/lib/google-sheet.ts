@@ -234,7 +234,11 @@ export default class GoogleSheet {
    * @memberof GoogleSheet
    */
   async appendData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
-    const { rawData }: GoogleSheetCli.SheetData = await this.getData(options, spreadsheetId);
+    // `getData` fills `worksheetTitle` in on the object it is handed, from the range or from the
+    // title remembered on the instance. Hand it a copy: `updateData` has to see the title the
+    // caller passed to *this* call, or its absence, not one an earlier command left behind.
+    // Only `minRow` is written back, because callers (and the action's e2e) read it there.
+    const { rawData }: GoogleSheetCli.SheetData = await this.getData({ ...options }, spreadsheetId);
     options.minRow = rawData.length + 1;
     await this.updateData(data, options, spreadsheetId);
   }
