@@ -1,9 +1,9 @@
 import { expect } from 'chai';
-import { RAW_DATA, testRun, DATA_GET as worksheetTitle } from '../helper';
+import { describeLive, RAW_DATA, testRun, DATA_GET as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:get';
 
-describe(baseCommand, () => {
+describeLive(baseCommand, () => {
   testRun([baseCommand], { worksheetTitle }, (stdout: string) => {
     expect(stdout).to.contain('(a)');
     expect(stdout).to.contain('(b)');

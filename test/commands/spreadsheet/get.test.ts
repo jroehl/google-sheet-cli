@@ -1,10 +1,10 @@
 import { expect } from 'chai';
 import { sheets_v4 } from '@googleapis/sheets';
-import { SPREADSHEET_ID, testRun } from '../helper';
+import { describeLive, SPREADSHEET_ID, testRun } from '../helper';
 
 const baseCommand = 'spreadsheet:get';
 
-describe(baseCommand, () => {
+describeLive(baseCommand, () => {
   testRun([baseCommand], undefined, (stdout: string) => {
     expect(stdout).to.contain(`Fetched spreadsheet "github-actions-test" (${SPREADSHEET_ID})`);
   });

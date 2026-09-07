@@ -109,19 +109,28 @@ export const getRun = (parts: string[]): string => {
   return `runs "${parts.join(' ')}"`;
 };
 
+/**
+ * These cases drive the shared test spreadsheet. With no credentials in the environment there is
+ * nothing to drive and every one of them would fail deep inside googleapis, on an authentication
+ * error that says nothing about the command under test, so they are skipped instead. What covers
+ * the command layer on a pull request is test/commands/offline.test.ts.
+ */
+export const describeLive = hasCredentials ? describe : describe.skip;
+
+/**
+ * One live command run, as a plain mocha `it`.
+ *
+ * `runCommand` hands back the value the command's `run` returned alongside the captured output,
+ * so a `--rawOutput` case asserts on that object rather than re-parsing the JSON it printed.
+ */
 export const testRun = (cmd: string[], args?: Args, cb: Function = () => {}) => {
   const parsedCommand = getCmd(cmd, args);
-  const commandString = `runs "${parsedCommand.join(' ')}"`;
-  it(commandString, async () => {
-    const { error, stdout } = await runCommand(parsedCommand);
+  const wantsResult = parsedCommand.includes('--rawOutput');
+  it(`runs "${parsedCommand.join(' ')}"`, async () => {
+    const { error, result, stdout } = await runCommand(parsedCommand);
     // `runCommand` returns the error instead of throwing it, so a failed command would
     // otherwise be asserted against an empty stdout and report the wrong thing.
     if (error) throw error;
-    if (!commandString.includes('--rawOutput')) {
-      cb(stdout);
-      return;
-    }
-    const cleanedJSON = stdout.replace(/\r?\n|\r| /g, '');
-    cb(JSON.parse(cleanedJSON));
+    await cb(wantsResult ? result : stdout);
   });
 };
