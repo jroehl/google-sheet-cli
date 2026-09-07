@@ -191,3 +191,111 @@ path is unaffected — replaying the same key through `password-prompt`'s raw br
 terminal takes, since `stdin.setRawMode` exists there) returns all 1730 characters intact and
 `normalizeCredentials` turns them into a valid RSA PEM. Nothing to fix here; the supported
 non-interactive routes are the flags, the env variables and `--credentialsFile`.
+
+## Step 6 — grow the grid on write (#611)
+
+Everything below was run on Node 20.11.1
+(`/Users/jemrich/.local/share/mise/installs/node/20.11.1/bin/node`), offline, against a committed
+in-memory fake of the Sheets v4 REST API (`test/fake-sheets.ts`).
+
+### The harness
+
+`test/fake-sheets.ts` swaps `require('https').request` for a stand-in that answers out of an
+in-memory spreadsheet. Everything above the socket is the real thing: `googleapis`,
+`google-auth-library`, `gtoken` (it really signs the JWT assertion, with a throwaway RSA key
+generated per run), `gaxios` and `node-fetch` all build their requests and parse the responses
+exactly as they do against Google. The fake models `spreadsheets.get`, `spreadsheets.create`,
+`values.get`, `values.update`, `values.append` and `batchUpdate` for `addSheet`, `deleteSheet`,
+`updateSheetProperties` and `appendDimension`, plus the OAuth token endpoint. Its A1 parsing is
+written from scratch rather than reusing `src/lib/utils.ts`, so a bug in the production parser
+cannot hide itself inside the fake.
+
+The two ways the API refuses a write that does not fit the grid are reproduced verbatim, which is
+what makes the #611 tests meaningful:
+
+```
+Range (Full!A4) exceeds grid limits. Max rows: 3, max columns: 2
+Requested writing within range ['Full'!A11], but tried writing to row [14]
+```
+
+Known limits of the fake: reads are clamped to the grid rather than rejected (writes are strict);
+`values.get` always quotes the worksheet title in the `range` it echoes, where Google only quotes
+when the title needs it; `values.append` only models `insertDataOption=OVERWRITE`; no formatting,
+formulas, merged cells or protected ranges.
+
+### `values.append` — what it would have done differently
+
+Brief item (e) asked for `values.append` with `insertDataOption: 'OVERWRITE'` to be evaluated
+against the existing expectations. It was, through the same fake, driving the raw `googleapis`
+client side by side with the deterministic `getData` → `ensureGridSize` → `values.update` path.
+The deterministic path is what ships in 2.3.0 (controller ruling R2); this is the record for a
+future major.
+
+| Case | `values.append` | `getData`-derived `minRow` |
+|---|---|---|
+| A: two rows of three columns, appended at `minCol: 2` | writes `'Probe'!B3:D3` | `minRow=3`, writes `B3` — **same** |
+| B: the seven-row `RAW_DATA` blank-cell fixture, appended at `minCol: 1` | writes `'Probe'!A8:C8` | `minRow=8` — **same** |
+| C: a table that occupies rows 5–7 only, appended with `minRow: 5` | writes `'Probe'!A8:B8` | `minRow=4` — **differs** |
+| D: a full 3×2 grid, appending one row of three columns | writes `'Probe'!A4:C4`, grid ends 4×3, **one** HTTP call | writes `A4`, grid ends 4×3, **four** HTTP calls |
+
+Case C is the real difference and it is a latent bug in the deterministic path, not a change
+`values.append` would introduce: `appendData` sets `minRow = rawData.length + 1`, but `getData`
+returns rows counted from the start of the queried range, so when the caller passes `minRow: 5`
+the count is relative to row 5 while the write is addressed from row 1. `values.append` gets it
+right because the API resolves the table's last row itself. Fixing that in the current path means
+adding the range's start row back in; switching to `values.append` fixes it for free.
+
+Two things block the switch today, both worth writing into the v3 plan:
+
+- The action's e2e asserts `.results[3].command.kwargs[1].minRow == 3`, which only exists because
+  `appendData` mutates the options object it was handed. `values.append` reports where the data
+  landed in `updates.updatedRange` instead, so that assertion and any consumer relying on the
+  mutation have to move first.
+- Case D shows `values.append` growing the grid server side in a single request. That is strictly
+  better, but it also means the library stops knowing the grid size, so `ensureGridSize` and the
+  bounded-range rejection in `requiredGrid` would have to go with it.
+
+### Test evidence
+
+The pinning suite (`test/regression.test.ts`, 31 cases covering `addWorksheet`, `getWorksheet`,
+`getSpreadsheet`, `addSpreadsheet`, `removeWorksheet`, `renameWorksheet`, `getData`, `updateData`
+and `appendData`) was written first and run green against the unmodified code before any of this
+step's changes were made — 31 passing. Every one of those 31 still passes unchanged afterwards; no
+pinned expectation had to be updated.
+
+```sh
+npm run test:unit
+# 104 passing (124ms)
+# = 21 credentials + 42 lib (parser table, requiredGrid) + 31 pinning + 10 grid growth
+```
+
+Before the fix, nine of the ten `test/grid-growth.test.ts` cases failed with the #611 symptom, for
+example `Range (Full!A4) exceeds grid limits. Max rows: 3, max columns: 2` when appending four rows
+of three columns to a 3×2 worksheet. The tenth asserts that the grid is left alone when the data
+already fits, which was true before the change too.
+
+The pinning tests were checked for bite by mutating the code and confirming they fail:
+
+| Mutation | Result |
+|---|---|
+| `appendData`: `rawData.length + 1` → `rawData.length` | 7 failures, 4 of them pinning tests |
+| `getData`: `colToA(c + (minCol \|\| 0))` → `colToA(c + 1)` | 2 failures, both pinning tests |
+
+### Interpretation recorded: where `requiredGrid` starts counting
+
+The brief words the start of the write as coming "from `minRow`/`minCol` or the range start". The
+implementation prefers the range start, because that is what `getRange` prefers when it builds the
+range the write actually goes to. Taking `minRow` instead would make `ensureGridSize` size a
+region the data never lands in, and would make `appendData` with a bounded range reject writes that
+the API accepts. A range without a `:` is an anchor cell, not a bound, so it never triggers the
+`does not fit range` rejection.
+
+### Verify lines deferred to CI
+
+- The four live cases in the brief (create a `rowCount: 3, columnCount: 2` grid through
+  `batchUpdate`, `appendData` four rows of three columns with `minCol`, `appendData` with a
+  `range`, `updateData` with `range: "'<title>'!A5:C6"`, then assert `gridProperties` grew, that
+  `getData` returns every row, and that a sentinel at `E10` has not moved) cannot run here: this
+  machine has no Google credentials (plan ruling R1). Each of them has an offline twin in
+  `test/grid-growth.test.ts` driven through the fake, including the `E10` sentinel.
+- `npm test` — same reason; it drives the live shared spreadsheet.

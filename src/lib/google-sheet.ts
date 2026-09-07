@@ -1,7 +1,7 @@
 import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
 import { CredentialsInput, normalizeCredentials } from './credentials';
-import { colToA, getLongestArray, getRange, parseRange } from './utils';
+import { colToA, getLongestArray, getRange, parseRange, requiredGrid } from './utils';
 
 export namespace GoogleSheetCli {
   export interface Credentials {
@@ -236,8 +236,22 @@ export default class GoogleSheet {
    */
   async updateData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
-    if (!options.worksheetTitle) throw 'Specify worksheetTitle';
-    if (!Array.isArray(data) || !data.every(Array.isArray)) throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+
+    // a range names its own worksheet, and that is the one the write lands on
+    const rangeTitle = options.range ? parseRange(options.range).worksheetTitle : undefined;
+    const targetTitle = rangeTitle || options.worksheetTitle;
+    if (!targetTitle) throw 'Specify worksheetTitle';
+    if (rangeTitle && options.worksheetTitle && rangeTitle !== options.worksheetTitle) {
+      throw new Error(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${options.worksheetTitle}"`);
+    }
+    if (!Array.isArray(data) || !data.length || !data.every(Array.isArray)) {
+      throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+    }
+
+    const { rows, cols } = requiredGrid(data, options);
+    const sheet = await this.getWorksheet(targetTitle, spreadsheetId);
+    await this.ensureGridSize(sheet, rows, cols, spreadsheetId);
+
     const range = getRange(options);
     await this.sheets.spreadsheets.values.update({
       spreadsheetId: spreadsheetId || this.spreadsheetId,
@@ -246,6 +260,35 @@ export default class GoogleSheet {
       requestBody: {
         values: data,
       },
+    });
+  }
+
+  /**
+   * Grow the worksheet grid so that it holds at least the requested number of rows and columns.
+   * The API never grows the grid for a values.update, so a write past the last row or column
+   * fails with "exceeds grid limits" unless the dimensions are appended first (#611).
+   *
+   * @param {sheets_v4.Schema$Sheet} sheet
+   * @param {number} neededRows
+   * @param {number} neededCols
+   * @param {string} [spreadsheetId]
+   * @returns {Promise<void>}
+   * @memberof GoogleSheet
+   */
+  private async ensureGridSize(sheet: sheets_v4.Schema$Sheet, neededRows: number, neededCols: number, spreadsheetId?: string): Promise<void> {
+    const { rowCount, columnCount } = sheet.properties?.gridProperties || {};
+    const rows = rowCount ?? 0;
+    const cols = columnCount ?? 0;
+    const sheetId = sheet.properties?.sheetId;
+
+    const requests: sheets_v4.Schema$Request[] = [];
+    if (neededRows > rows) requests.push({ appendDimension: { sheetId, dimension: 'ROWS', length: neededRows - rows } });
+    if (neededCols > cols) requests.push({ appendDimension: { sheetId, dimension: 'COLUMNS', length: neededCols - cols } });
+    if (!requests.length) return;
+
+    await this.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId || this.spreadsheetId,
+      requestBody: { requests },
     });
   }
 
