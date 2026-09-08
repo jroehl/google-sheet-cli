@@ -173,6 +173,25 @@ export const parseFakeRange = (range: string): FakeRange => {
 };
 
 /**
+ * Whether A1 notation has to put a worksheet title in quotes to name it.
+ *
+ * Sheets used to quote the title of every range it echoed. Since September 2026 it quotes only
+ * the titles that cannot be written bare, which is what this reproduces: anything outside
+ * letters, digits and underscores or not starting with a letter (a space, punctuation, a
+ * leading digit), a title that would read as a cell reference instead - a column label is at
+ * most three letters, so `A1` and `ZZZ100` need quotes while `Sheet1` does not - and the two
+ * boolean literals.
+ *
+ * Measured against the live API on 2026-09-07: a request for `'worksheet_remove_168...'!A1:Z1000`
+ * came back as `worksheet_remove_168...!A1:Z1000`.
+ *
+ * @param {string} title
+ * @returns {boolean}
+ */
+const needsQuoting = (title: string): boolean =>
+  !/^[A-Za-z][A-Za-z0-9_]*$/.test(title) || /^[A-Za-z]{1,3}[0-9]+$/.test(title) || /^(TRUE|FALSE)$/i.test(title);
+
+/**
  * Render a range back to the A1 notation the Sheets API echoes in its responses
  *
  * @param {string} title
@@ -183,10 +202,10 @@ export const parseFakeRange = (range: string): FakeRange => {
  * @returns {string}
  */
 const formatRange = (title: string, startRow: number, startCol: number, endRow?: number, endCol?: number): string => {
-  const quoted = `'${title.replace(/'/g, "''")}'`;
+  const named = needsQuoting(title) ? `'${title.replace(/'/g, "''")}'` : title;
   const start = `${colToLetter(startCol)}${startRow}`;
-  if (endRow === undefined && endCol === undefined) return `${quoted}!${start}`;
-  return `${quoted}!${start}:${colToLetter(endCol as number)}${endRow}`;
+  if (endRow === undefined && endCol === undefined) return `${named}!${start}`;
+  return `${named}!${start}:${colToLetter(endCol as number)}${endRow}`;
 };
 
 export class FakeSheets {

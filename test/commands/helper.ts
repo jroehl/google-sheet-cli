@@ -1,4 +1,4 @@
-import { test } from '@oclif/test';
+import { expect, test } from '@oclif/test';
 import GoogleSheet from '../../src/lib/google-sheet';
 
 const { GSHEET_CLIENT_EMAIL: client_email = '', GSHEET_PRIVATE_KEY: private_key = '', TEST_SPREADSHEET_ID } = process.env;
@@ -12,6 +12,28 @@ const ID = () => `_${Math.random().toString(36).substr(2, 9)}`;
  * the first numeric token. A title it cannot parse is never cleaned up.
  */
 export const getID = (prefix = '') => `${prefix}${Date.now()}${ID()}`;
+
+/**
+ * Assert that a range the API echoed addresses `title` over `a1Notation`, whichever way Google
+ * spelled the worksheet.
+ *
+ * Sheets used to wrap the worksheet of an echoed range in single quotes unconditionally. Since
+ * September 2026 it quotes only the titles that need it, so a title of letters, digits and
+ * underscores starting with a letter - which is every title getID makes - comes back bare.
+ * Both spellings address the same cells, so assert that and not the punctuation. Do not
+ * "restore" the quotes: pinning either spelling breaks again the next time Google changes its
+ * mind, and it breaks today for a title that does need quoting.
+ *
+ * @param {unknown} actual the range the API echoed
+ * @param {string} title the worksheet it has to name
+ * @param {string} a1Notation the cell span it has to cover
+ * @returns {void}
+ */
+export const expectRange = (actual: unknown, title: string, a1Notation: string): void => {
+  const bare = `${title}!${a1Notation}`;
+  const quoted = `'${title.replace(/'/g, "''")}'!${a1Notation}`;
+  expect(actual, `range should address "${title}" over ${a1Notation}`).to.be.oneOf([bare, quoted]);
+};
 
 export const DATA_APPEND = getID('data_append_');
 export const DATA_UPDATE = getID('data_update_');

@@ -219,10 +219,11 @@ Requested writing within range ['Full'!A11], but tried writing to row [14]
 ```
 
 Known limits of the fake — reads were clamped to the grid here rather than refused, which round 2
-corrected; see *the fake was more permissive than the API* below. What is left: `values.get`
-always quotes the worksheet title in the `range` it echoes, where Google only quotes when the
-title needs it; `values.append` only models `insertDataOption=OVERWRITE`; no formatting, formulas,
-merged cells or protected ranges.
+corrected; see *the fake was more permissive than the API* below. `values.get` used to quote the
+worksheet title in every `range` it echoed; it now quotes only the titles that need it, which is
+what Google has done since September 2026 (`needsQuoting` in `test/fake-sheets.ts`). What is left:
+`values.append` only models `insertDataOption=OVERWRITE`; no formatting, formulas, merged cells or
+protected ranges.
 
 ### `values.append` — what it would have done differently
 
