@@ -35,7 +35,7 @@ fi
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-titles="$("${root}/bin/run" spreadsheet:get -s "${TEST_SPREADSHEET_ID}" -r | jq -r '.sheets[].properties.title')"
+titles="$("${root}/bin/run.js" spreadsheet:get -s "${TEST_SPREADSHEET_ID}" -r | jq -r '.sheets[].properties.title')"
 decisions="$(printf '%s\n' "${titles}" | node "${root}/bin/cleanup-classify.js")"
 
 printf '%s\n' "${decisions}" | while IFS=$'\t' read -r decision reason title; do
@@ -64,5 +64,5 @@ if [ "${count}" -gt "${MAX_DELETES}" ] && [ "${force}" -eq 0 ]; then
 fi
 
 printf '%s\n' "${doomed}" | while IFS= read -r title; do
-  "${root}/bin/run" worksheet:remove -t "${title}" -s "${TEST_SPREADSHEET_ID}"
+  "${root}/bin/run.js" worksheet:remove -t "${title}" -s "${TEST_SPREADSHEET_ID}"
 done

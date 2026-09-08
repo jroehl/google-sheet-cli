@@ -1,9 +1,9 @@
-import { expect } from '@oclif/test';
-import { expectRange, RAW_DATA, testRun, DATA_GET as worksheetTitle } from '../helper';
+import { expect } from 'chai';
+import { describeLive, expectRange, RAW_DATA, testRun, DATA_GET as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:get';
 
-describe(baseCommand, () => {
+describeLive(baseCommand, () => {
   testRun([baseCommand], { worksheetTitle }, (stdout: string) => {
     expect(stdout).to.contain('(a)');
     expect(stdout).to.contain('(b)');

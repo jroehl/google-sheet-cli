@@ -1,8 +1,12 @@
-import { expect, test } from '@oclif/test';
+import { runCommand } from '@oclif/test';
+import { expect } from 'chai';
 import GoogleSheet from '../../src/lib/google-sheet';
 
 const { GSHEET_CLIENT_EMAIL: client_email = '', GSHEET_PRIVATE_KEY: private_key = '', TEST_SPREADSHEET_ID } = process.env;
 export const SPREADSHEET_ID = TEST_SPREADSHEET_ID;
+
+/** Whether this run can reach the shared test spreadsheet at all. */
+export const hasCredentials = Boolean(client_email && private_key && TEST_SPREADSHEET_ID);
 
 const ID = () => `_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -71,7 +75,7 @@ export const addTestWorksheets = async () => {
     worksheetsToAdd.map(async (sheet) => {
       await gsheet.addWorksheet(sheet, SPREADSHEET_ID);
       return sheet;
-    })
+    }),
   );
   results.forEach((sheet) => console.log(`  - ${sheet}`));
   console.log('');
@@ -89,7 +93,7 @@ export const removeTestWorksheets = async () => {
         // fail soft
         return ((error as Error).message || error) as string;
       }
-    })
+    }),
   );
   results.forEach((sheet) => console.log(`  - ${sheet}`));
   console.log('');
@@ -128,18 +132,28 @@ export const getRun = (parts: string[]): string => {
   return `runs "${parts.join(' ')}"`;
 };
 
+/**
+ * These cases drive the shared test spreadsheet. With no credentials in the environment there is
+ * nothing to drive and every one of them would fail deep inside googleapis, on an authentication
+ * error that says nothing about the command under test, so they are skipped instead. What covers
+ * the command layer on a pull request is test/commands/offline.test.ts.
+ */
+export const describeLive = hasCredentials ? describe : describe.skip;
+
+/**
+ * One live command run, as a plain mocha `it`.
+ *
+ * `runCommand` hands back the value the command's `run` returned alongside the captured output,
+ * so a `--rawOutput` case asserts on that object rather than re-parsing the JSON it printed.
+ */
 export const testRun = (cmd: string[], args?: Args, cb: Function = () => {}) => {
   const parsedCommand = getCmd(cmd, args);
-  const commandString = `runs "${parsedCommand.join(' ')}"`;
-  test
-    .stdout()
-    .command(parsedCommand)
-    .it(commandString, ({ stdout }) => {
-      if (!commandString.includes('--rawOutput')) {
-        cb(stdout);
-        return;
-      }
-      const cleanedJSON = stdout.replace(/\r?\n|\r| /g, '');
-      cb(JSON.parse(cleanedJSON));
-    });
+  const wantsResult = parsedCommand.includes('--rawOutput');
+  it(`runs "${parsedCommand.join(' ')}"`, async () => {
+    const { error, result, stdout } = await runCommand(parsedCommand);
+    // `runCommand` returns the error instead of throwing it, so a failed command would
+    // otherwise be asserted against an empty stdout and report the wrong thing.
+    if (error) throw error;
+    await cb(wantsResult ? result : stdout);
+  });
 };

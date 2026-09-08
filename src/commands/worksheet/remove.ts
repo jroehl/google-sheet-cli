@@ -24,6 +24,8 @@ Worksheet "<worksheetTitle>" successfully removed
     this.start('Removing worksheet');
     await this.gsheet.removeWorksheet(worksheetTitle, spreadsheetId);
     this.stop();
-    this.logRaw(`Worksheet "${worksheetTitle}" successfully removed`, { operation: this.id, worksheetTitle });
+    const result = { operation: this.id, worksheetTitle };
+    this.logRaw(`Worksheet "${worksheetTitle}" successfully removed`, result);
+    return result;
   }
 }

@@ -2,13 +2,172 @@
 
 A simple helper cli to interact with google sheets.
 
+## Migrating from 2.x
+
+3.0.0 is a platform release. Every command, every flag and everything the commands print is the same as on 2.3.0, and the sequence of Sheets API calls each library method makes is unchanged — same requests, same order, same bodies. What moved is the Node floor, the module a library consumer imports, the type of the errors that are thrown, and one hostname the auth stack talks to.
+
+Coming from 2.2.x rather than 2.3.0? 3.0.0 carries everything in [Changes in 2.3.0](#changes-in-230) as well, so read both. Two of those are outright behaviour changes and are repeated [at the end of this section](#two-22x-calls-that-changed-in-230).
+
+Using the `jroehl/gsheet.action` GitHub Action rather than this package directly? It bundles a pinned copy of `google-sheet-cli` into its committed `dist/`, so none of this reaches a workflow until that action bumps the dependency and publishes.
+
+### Node 22 or newer
+
+`engines.node` is now `>=22`, so `google-sheet-cli@latest` needs Node 22 or newer. Node 14 through 20 are no longer supported.
+
+The 2.x line stays on npm and keeps its `>=14` floor. Ask for it by range, which always resolves to the newest 2.x:
+
+```sh-session
+$ npm install -g google-sheet-cli@^2
+$ npx google-sheet-cli@^2 spreadsheet:get -s <spreadsheetId>
+```
+
+The `2.x` branch carries that line and gets fixes, not features.
+
+### The bin scripts are `bin/run.js` and `bin/dev.js`
+
+oclif 5 expects its executables to carry a file extension, so `bin/run` became `bin/run.js` and `bin/dev` became `bin/dev.js`. This only matters where something names the file by path — a checkout, a container image, a script calling `node_modules/google-sheet-cli/bin/run`. The installed `google-sheet` binary and `npx google-sheet-cli` are unaffected.
+
+### A side-effect-free `google-sheet-cli/sheet` subpath
+
+Using the library without the cli used to mean reaching into the build output:
+
+```ts
+import GoogleSheet from 'google-sheet-cli/lib/lib/google-sheet';
+```
+
+That path still works and still carries its types. 3.0.0 adds a declared one:
+
+```ts
+import GoogleSheet from 'google-sheet-cli/sheet';
+```
+
+The package root (`google-sheet-cli`) also exports oclif's `run`, so importing it loads the whole cli; `google-sheet-cli/sheet` loads the Sheets client and its auth chain and nothing else — 128 modules against 289 for the root, with no `@oclif/core` anywhere in the graph.
+
+The subpath is declared through the package's `exports` map, so a TypeScript consumer has to be on `moduleResolution` `node16`, `nodenext` or `bundler`. Under the older `node10` resolution `google-sheet-cli/sheet` does not resolve at all (`TS2307: Cannot find module`), and only the deep path does. If moving that setting is not an option, keep the deep import.
+
+### The `exports` map seals paths that used to be reachable
+
+Declaring `exports` at all closes off everything it does not name. `google-sheet-cli`, `google-sheet-cli/sheet`, `google-sheet-cli/lib/*` (with or without `.js`) and `google-sheet-cli/package.json` resolve; anything else now fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`. The one path known to be closed this way is `google-sheet-cli/oclif.manifest.json`. Nothing in this project or its GitHub action reads it, but a consumer that did will have to stop.
+
+Separately, `google-sheet-cli/lib/lib/types` is gone (`MODULE_NOT_FOUND`). It was a second, stale copy of the `GoogleSheetCli` type namespace that nothing imported — the live one has always been declared in `google-sheet.ts` and is re-exported from the package root and from `google-sheet-cli/sheet`.
+
+### Errors are `Error` instances
+
+Eight places used to `throw` a bare string. They now throw an `Error` carrying byte-identical text:
+
+- `Spreadsheet "<id>" not found`
+- `Sheet "<title>" not found in "<spreadsheet>"`
+- `Option property "worksheetTitle" is required`
+- `No header row exists`
+- `Specify worksheetTitle`
+- `Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])`
+- `col has to be greater than 1`
+- `Label has to be uppercase alphabet letter but is "<label>"`
+
+The cli prints exactly what it printed before, and so does the GitHub action, which already read `err.message || err`. What breaks is a library consumer that compares the caught value to a string:
+
+```ts
+catch (err) {
+  if (err === 'Specify worksheetTitle') { … }                     // 2.x, no longer matches
+  if ((err as Error).message === 'Specify worksheetTitle') { … }  // 3.x
+}
+```
+
+### The OAuth token endpoint and the scope moved
+
+3.0.0 builds its Sheets client from `@googleapis/sheets` instead of the whole `googleapis` bundle. That brings a newer auth stack with it, and two things on the wire follow from it.
+
+The token request goes to a different host, and the assertion asks for a different scope:
+
+```
+2.x   POST https://www.googleapis.com/oauth2/v4/token   scope https://spreadsheets.google.com/feeds/
+3.x   POST https://oauth2.googleapis.com/token          scope https://www.googleapis.com/auth/spreadsheets
+```
+
+**If you run this behind an egress allowlist that names `www.googleapis.com`, add `oauth2.googleapis.com`.** `sheets.googleapis.com`, where every actual Sheets call goes, is unchanged, and so is every one of those calls.
+
+The scope change needs no action for the normal setup: a service account that was shared onto a spreadsheet the way [Step 2](#step-2-sharing-the-spreadsheet) describes keeps working, because the sharing is what grants the access and the account authorises itself for the scope. **The exception is Google Workspace domain-wide delegation.** If the service account is used through delegation, an administrator has to add `https://www.googleapis.com/auth/spreadsheets` to that client's allowed scopes in the Admin console, beside the old feeds scope. Until they do, every call comes back 401.
+
+### Request headers changed
+
+Same upgrade, same cause — the HTTP client underneath went from gaxios 5 to gaxios 7. Google ignores all of this; it is listed because it is visible to a proxy, a request log or a strict middlebox.
+
+On every Sheets call:
+
+```
+2.x   Accept: application/json
+3.x   Accept: */*
+```
+
+That is the header getting looser, not stricter, so nothing starts refusing to answer. What it can break is something in the middle that was matching on `application/json` — a proxy rule, a request filter, a recorded-cassette test fixture.
+
+On the token request:
+
+```
+2.x   Content-Type: application/x-www-form-urlencoded
+      Accept-Encoding: gzip,deflate
+3.x   Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+      Accept-Encoding: gzip, deflate, br
+```
+
+The `User-Agent` and `x-goog-api-client` version strings move with the client version, as they do on any upgrade.
+
+### `help`'s argument is rendered differently
+
+`@oclif/plugin-help` 7 declares the argument as a variadic, so the usage line and `docs/help.md` move from
+
+```
+$ google-sheet help [COMMANDS] [-n]
+```
+
+to
+
+```
+$ google-sheet help [COMMAND...] [-n]
+```
+
+Nothing about invoking it changes: `google-sheet help data:get` works exactly as before. The strings are named here because they are in the generated docs and in anyone's screenshots.
+
+The same plugin also lays every command's `--help` out slightly differently: a flag that reads an environment variable is annotated `[env: NAME]`, a flag with no short character is indented under the ones that have one, and the dim styling on descriptions is gone. Every flag itself — long name, short character, default, `=<value>` shape — is unchanged. If something parses `--help` output, this is the release that will break it.
+
+### `js-yaml` is pinned to 3.x on purpose
+
+`data:get --output=yaml` is rendered by a copy of `@oclif/core@2.8.11`'s table, carried in `src/lib/table.ts` because core 5 has no `ux.table` and no successor that keeps the eight table flags. That code calls `safeDump`, which js-yaml 4 renamed to `dump`. The pin exists so the yaml output stays byte-for-byte what 2.2.x emitted, which is the property the whole vendored table was verified against. js-yaml 3.14.1 is end of life; this is a deliberate compatibility pin, not neglect, and moving it means re-running that output comparison, not just changing the version.
+
+### `getData` without `minCol` returns instead of throwing
+
+On 2.x, `getData({ worksheetTitle: 'Sheet1' })` threw `col has to be greater than 1`, and so did a whole-worksheet quoted range, `getData({ range: "'Sheet1'!" })`. The read itself was correct — it started at A1 — but the code that names unlabelled columns counted from column 0, and `colToA` refuses anything below 1. The cli never reached it, because `data:get` defaults `--minCol` to 1; a library caller and the GitHub action did.
+
+Those calls now return what the same call with an explicit `minCol: 1` returns, field for field: the identical request was already being sent, so the identical result is the only defensible answer.
+
+**Calls that already returned something return exactly what they returned before, wrong labels included.** With `hasHeaderRow` and a non-empty first heading, 2.x never reached `colToA(0)` at all — it just numbered the blank headings one column short, calling column C `(B)` and column D `(C)`, and emitting one heading too many when the read came back with no rows. Those labels are the keys of every `formatted` row, and the GitHub action serialises them into its `results`, so a workflow may be reading them today. 3.0.0 keeps them. Correcting them is a change to output that currently works and is left for a release that announces it.
+
+Measured against published 2.2.0 through the library's own HTTP fake, over 125 shapes — six worksheet fixtures (regular, ragged header, header-only, blank first heading, empty, header wider than its data) crossed with `hasHeaderRow`, `minCol` absent/0/1/2 and `minRow` absent/2, plus `maxCol`/`maxRow` variants, the four range forms, and six chained-call scenarios on one shared instance: **83 identical, 0 different, 42 previously throwing**.
+
+### Three 2.2.x calls that changed in 2.3.0
+
+These arrived in 2.3.0, not in 3.0.0, so they are new only to someone upgrading from 2.2.x. All three were found by running the published 2.2.0 build and this one side by side through the library's HTTP fake; they are the only differences.
+
+**A range that names no worksheet, together with a `worksheetTitle` that does not exist, now fails.** `updateData(data, { worksheetTitle: 'Ghost', range: 'A1:B1' })` handed `A1:B1` to the API on 2.2.0, which resolved it against the first sheet and wrote there. Now the grid-sizing step looks the worksheet up first, does not find it, and throws. It needs both halves — a range carrying no worksheet, and a title naming a sheet that is gone. The cli cannot reach it (no write command exposes a `range` flag); only the library and the GitHub action's `range` option can.
+
+**`appendData` no longer writes the range's worksheet back onto the options object you passed.** With a quoted range and an explicit title, 2.2.0 left your `worksheetTitle` mutated to the range's worksheet; it is now left as you passed it. The data lands in the same cells either way. It is visible through the GitHub action, which serialises `command.kwargs` into its `results` output, so a workflow reading `kwargs[1].worksheetTitle` after such a call sees a different value.
+
+**An anchor range with no end is rejected before the request rather than by the API.** `getData({ range: "'Sheet1'!A2:" })` fails on 2.2.x and it fails now; what changed is where. 2.2.0 sent the request and surfaced the API's `Unable to parse range:`, and the call now fails locally with `Invalid range "'Sheet1'!A2:"` and sends nothing. Only the message and the request count differ, so this matters if something is matching on the old text.
+
+### What has not changed
+
+- Every command, flag, short character, default and argument. `data:get`'s eight table flags (`--columns`, `--sort`, `--filter`, `--csv`, `--output`, `-x/--extended`, `--no-truncate`, `--no-header`) all survive, rendering the same table.
+- The Sheets requests each library method makes, down to the query string and the body.
+- Authentication itself: service accounts, the same three ways of handing over credentials, the same `GSHEET_*` environment variables.
+- A `range` that names a different worksheet than `worksheetTitle` still warns on stderr and writes to the worksheet the range names, exactly as 2.2.x and 2.3.0 do. 3.0.0 deliberately does not turn that warning into a refusal.
+
 ## Changes in 2.3.0
 
 - The `engines.node` floor is now `>=14`, which was always the real minimum.
 - Unusable service account credentials are rejected before the first request, with a message that names the fix instead of an OpenSSL parser error.
 - The new `--credentialsFile` flag reads the credentials straight out of the service account JSON file. See [Credentials](#credentials).
 - Writing past the last row or column of a worksheet now grows the grid first instead of failing with "exceeds grid limits", so appending to a sheet that is already full works again.
-- A `range` naming a different worksheet than `worksheetTitle` still writes to the worksheet the range names, exactly as 2.2.x did, but now says so on stderr instead of resolving the contradiction silently. Refusing the call outright is held for 3.0.0.
+- A `range` naming a different worksheet than `worksheetTitle` still writes to the worksheet the range names, exactly as 2.2.x did, but now says so on stderr instead of resolving the contradiction silently. It is still a warning on 3.0.0 and there is no plan to make it a refusal in that release: refusing would break a call every 2.x version completed, which is a different kind of change from the platform moves 3.0.0 is made of.
 - `updateData` now accepts a `range` carrying a quoted worksheet title with no `worksheetTitle` beside it, taking the worksheet from the range instead of insisting on a title the range already named. As in 2.2.x, an unquoted title inside a range does not name the worksheet.
 - A write now re-points the worksheet a `GoogleSheet` instance remembers. `updateData` resolves and fetches its target worksheet before writing, and that worksheet becomes the one a later command uses when it omits `worksheetTitle`. Before 2.3.0 only a read moved it. This is only visible when several commands share one instance, which is what the GitHub action does.
 - A write that sizes a grid costs one extra API read. Growing the grid means knowing how big it is, so `updateData` fetches the spreadsheet before the update, plus one more request when the grid actually has to grow. The one write that reads nothing extra is an unquoted `range` naming a worksheet other than the one the call resolves to, where nothing is sized because nothing there is written to.
@@ -22,6 +181,8 @@ A simple helper cli to interact with google sheets.
 [![Test version](https://github.com/jroehl/google-sheet-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jroehl/google-sheet-cli/actions/workflows/test.yml)
 
 - [google-sheet-cli](#google-sheet-cli)
+  - [Migrating from 2.x](#migrating-from-2x)
+  - [Changes in 2.3.0](#changes-in-230)
   - [Usage as CLI](#usage-as-cli)
   - [Usage as library](#usage-as-library)
 - [Command Topics](#command-topics)
@@ -43,7 +204,7 @@ $ npm install -g google-sheet-cli
 $ google-sheet COMMAND
 running command...
 $ google-sheet (--version)
-google-sheet-cli/0.0.0 darwin-arm64 node-v18.16.0
+google-sheet-cli/0.0.0 darwin-arm64 node-v24.11.1
 $ google-sheet --help [COMMAND]
 USAGE
   $ google-sheet COMMAND
@@ -110,7 +271,7 @@ For anything scripted, hand the key over with `--credentialsFile` or the environ
 
 ## Build with
 
-- [googleapis](https://github.com/googleapis/googleapis) - The node module used for manipulating the google sheet
+- [@googleapis/sheets](https://github.com/googleapis/google-api-nodejs-client/tree/main/src/apis/sheets) - The node module used for manipulating the google sheet. 2.x used the whole `googleapis` bundle; see [Migrating from 2.x](#migrating-from-2x)
 - [oclif](https://oclif.io) - The node module used to create the cli
 - [semantic-release](https://github.com/semantic-release/semantic-release) - for releasing new versions
 - [typescript](https://www.typescriptlang.org)

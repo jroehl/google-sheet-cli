@@ -1,5 +1,6 @@
-import { Flags, ux } from '@oclif/core';
+import { Flags } from '@oclif/core';
 import Command, { spreadsheetId, worksheetTitle } from '../../lib/base-class';
+import { table, tableFlags } from '../../lib/table';
 
 export default class GetData extends Command {
   static description = 'Returns cell data';
@@ -16,7 +17,7 @@ A3   B3   C3
 
   static flags = {
     ...Command.flags,
-    ...ux.table.flags(),
+    ...tableFlags(),
     spreadsheetId,
     worksheetTitle,
     hasHeaderRow: Flags.boolean({ char: 'w', description: 'If the first row should be treated as header row', default: false, required: false }),
@@ -35,9 +36,11 @@ A3   B3   C3
     this.start('Fetching data');
     const res = await this.gsheet.getData({ minRow, maxRow, minCol, maxCol, range, hasHeaderRow, worksheetTitle }, spreadsheetId);
 
+    const result = { operation: this.id, ...res };
+
     if (rawOutput) {
-      this.logRaw('', { operation: this.id, ...res });
-      return;
+      this.logRaw('', result);
+      return result;
     }
 
     const { header, formatted } = res;
@@ -45,6 +48,7 @@ A3   B3   C3
       return { ...red, [col]: {} };
     }, {});
     this.stop();
-    ux.table(formatted, columns, tableOptions);
+    table(formatted, columns, tableOptions);
+    return result;
   }
 }

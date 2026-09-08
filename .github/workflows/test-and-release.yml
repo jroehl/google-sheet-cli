@@ -15,6 +15,11 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}
 
+# Third-party actions are pinned to the commit their tag pointed at when this workflow was
+# written, with the tag in the comment. A tag can be moved, a commit cannot, so a compromised
+# upstream release cannot reach the secrets this workflow loads. Dependabot's github-actions
+# ecosystem keeps the pins moving.
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,11 +28,11 @@ jobs:
       # Pull requests get the offline suite across the supported range. A push runs the live
       # suite, which talks to the one shared test spreadsheet and must not be parallelised.
       matrix:
-        node: ${{ github.event_name == 'pull_request' && fromJSON('[18, 20, 24]') || fromJSON('[18]') }}
+        node: ${{ github.event_name == 'pull_request' && fromJSON('[22, 24]') || fromJSON('[24]') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: ${{ matrix.node }}
           cache: 'npm'
@@ -35,14 +40,60 @@ jobs:
       - name: ci
         run: npm ci
 
+      # No credentials are in the environment here and none are needed: the offline suite covers
+      # the library through test/fake-sheets.ts and the command layer through
+      # test/commands/offline.test.ts, which stubs src/lib/factory. This is the only test gate a
+      # pull request gets, so it is the one that has to catch an oclif flag or argument
+      # regression before it is merged.
+      #
+      # 2.x needed NODE_OPTIONS=--no-experimental-strip-types here: mocha 10 imported the .ts
+      # specs as ES modules on Node 22.18 and later, bypassing ts-node's CommonJS hook, and
+      # @oclif/test 2 then died on `module.parent`. mocha 12 requires them through ts-node again
+      # and @oclif/test 5 no longer reads `module.parent`, so the flag is gone.
       - name: unit tests
         if: github.event_name == 'pull_request'
         run: npm run test:unit
-        env:
-          # Node 22.18 and later strip types and load the .ts specs as ES modules, so mocha never
-          # falls back to ts-node's CommonJS hook and @oclif/test dies on `module.parent`. Until
-          # the toolchain moves off ts-node, keep type stripping off on those versions.
-          NODE_OPTIONS: ${{ matrix.node >= 22 && '--no-experimental-strip-types' || '' }}
+
+      # lib/ is gitignored and `npm ci` only fires the husky prepare script, so nothing has built
+      # it yet. The suites run from src/ through ts-node and would not notice a build that no
+      # longer emits, and bin/clear-testsheet.sh below drives ./bin/run.js, which resolves its
+      # commands from lib/ and exits 2 with "command spreadsheet:get not found" without it.
+      - name: build
+        run: npm run build
+
+      # The published CLI loads its command tree from lib/, not from src/. This catches a broken
+      # oclif command path or manifest, which nothing running under ts-node can see.
+      #
+      # It used to cover the success path only, and that is how a regression where every error
+      # message was swallowed - right exit code, right thrown object, nothing printed - reached a
+      # final review. So it now drives a failing command as well and asserts on what the built
+      # binary actually prints. `test/commands/output.test.ts`, which runs in the unit step above,
+      # covers the same ground from src/; this is the one gate that sees the shipped build.
+      #
+      # No credentials: `authorize` only constructs a JWT client, the token is fetched lazily on
+      # the first API call, and this command fails before any request is made. The key is
+      # generated here and never leaves the runner, so the step runs on a fork pull request too.
+      - name: cli smoke test
+        run: |
+          set -euo pipefail
+
+          ./bin/run.js --help
+
+          GSHEET_CLIENT_EMAIL=smoke@example.iam.gserviceaccount.com
+          GSHEET_PRIVATE_KEY="$(node -e 'const {generateKeyPairSync} = require("crypto"); process.stdout.write(generateKeyPairSync("rsa", {modulusLength: 2048, privateKeyEncoding: {format: "pem", type: "pkcs8"}, publicKeyEncoding: {format: "pem", type: "spki"}}).privateKey)')"
+          export GSHEET_CLIENT_EMAIL GSHEET_PRIVATE_KEY
+
+          if output="$(./bin/run.js data:update not-json --spreadsheetId=smoke --worksheetTitle=smoke 2>&1)"; then
+            echo "::error::a failing command exited 0"
+            printf '%s\n' "$output"
+            exit 1
+          fi
+
+          printf '%s\n' "$output"
+          if ! printf '%s' "$output" | grep -q 'has to be valid JSON'; then
+            echo "::error::the cli exited non-zero but printed no error message"
+            exit 1
+          fi
 
       # The three credentials are plain repository secrets. A secret that does not exist
       # interpolates to an empty string rather than failing, and an empty one makes the live
@@ -62,14 +113,6 @@ jobs:
           GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
           GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
           TEST_SPREADSHEET_ID: ${{ secrets.TEST_SPREADSHEET_ID }}
-
-      # bin/clear-testsheet.sh drives ./bin/run, which resolves its commands from lib/. lib/ is
-      # gitignored and `npm ci` only fires the husky prepare script, so without this the next step
-      # exits 2 with "command spreadsheet:get not found", takes the whole job down under
-      # `set -euo pipefail`, and publish never runs.
-      - name: build
-        if: github.event_name == 'push'
-        run: npm run build
 
       # Reports what the cron would remove, without removing anything, so a bad classification
       # shows up on the push that caused it.
@@ -101,14 +144,13 @@ jobs:
       # credential, so the package needs no long-lived npm token anywhere.
       id-token: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      # npm learned trusted publishing in 11.5.1 and no Node 18 ships an npm that new. This
-      # pins the Node that runs semantic-release only; the package still supports Node 14
-      # upward and the test matrix is what says so.
-      - uses: actions/setup-node@v3
+      # semantic-release runs prepack, which builds and regenerates the docs. Pin the Node it
+      # does that on rather than taking whatever the runner image ships this week.
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: '24'
+          node-version-file: '.nvmrc'
           cache: 'npm'
 
       - name: ci

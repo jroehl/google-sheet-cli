@@ -14,9 +14,10 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      # Pinned to the commit the tag pointed at; see .github/workflows/test-and-release.yml.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
@@ -24,7 +25,7 @@ jobs:
       - name: ci
         run: npm ci
 
-      # clear-testsheet.sh drives ./bin/run, which resolves its commands from the gitignored lib/.
+      # clear-testsheet.sh drives ./bin/run.js, which resolves its commands from the gitignored lib/.
       # `npm ci` only fires the husky prepare script, so without this the cron exits 2 with
       # "command spreadsheet:get not found" and nothing is ever cleaned up.
       - name: build
@@ -33,9 +34,8 @@ jobs:
       # The credentials are plain repository secrets, and one that does not exist interpolates
       # to an empty string rather than failing. clear-testsheet.sh checks TEST_SPREADSHEET_ID
       # itself but not the other two, and an empty client email or private key reaches the CLI's
-      # interactive credential prompt. A runner has no terminal, so that prompt reads EOF, takes
-      # it for an empty answer and asks again, forever: the cron would spin until the job timeout
-      # rather than fail. This one deletes worksheets unattended, so name the missing secret.
+      # interactive credential prompt, which aborts with a bare "No input" naming nothing. This
+      # cron deletes worksheets unattended, so say which secret is missing.
       - name: assert secrets
         run: test -n "$TEST_SPREADSHEET_ID" && test -n "$GSHEET_PRIVATE_KEY" && test -n "$GSHEET_CLIENT_EMAIL"
         env:

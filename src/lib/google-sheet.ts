@@ -1,5 +1,4 @@
-import { google, sheets_v4 } from 'googleapis';
-import get from 'lodash.get';
+import { auth, sheets, sheets_v4 } from '@googleapis/sheets';
 import { CredentialsInput, normalizeCredentials } from './credentials';
 import { log } from './log';
 import { colToA, getLongestArray, getRange, parseRange, rangeWorksheet, requiredGrid } from './utils';
@@ -40,7 +39,11 @@ export namespace GoogleSheetCli {
   }
 }
 
-const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
+// The Sheets API scope. 2.x asked for the retired Sheets v3 feed scope, which Google still
+// accepted for v4 calls; this is the scope the v4 API actually documents, and it covers every
+// call this class makes, `spreadsheets.create` included. Service account JWTs carry their scope
+// in the assertion rather than in a consent screen, so nothing has to be re-granted.
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
 const LOG_NAMESPACE = 'gsheet:sheets';
 
@@ -80,8 +83,8 @@ export default class GoogleSheet {
     if (!client_email) throw new Error('client_email is required to authorize');
     if (!private_key) throw new Error('private_key is required to authorize');
     // Create the JWT client
-    const auth = await google.auth.getClient({ credentials: { client_email, private_key }, scopes: [GOOGLE_FEED_URL] });
-    this.sheets = google.sheets({ version: 'v4', auth });
+    const client = new auth.JWT({ email: client_email, key: private_key, scopes: [SHEETS_SCOPE] });
+    this.sheets = sheets({ version: 'v4', auth: client });
   }
 
   /**
@@ -96,8 +99,7 @@ export default class GoogleSheet {
       spreadsheetId: spreadsheetId || this.spreadsheetId,
     });
 
-    this.sheets.spreadsheets.sheets;
-    if (!sheet) throw `Spreadsheet "${spreadsheetId || this.spreadsheetId}" not found`;
+    if (!sheet) throw new Error(`Spreadsheet "${spreadsheetId || this.spreadsheetId}" not found`);
     return sheet;
   }
 
@@ -113,9 +115,9 @@ export default class GoogleSheet {
     const { sheets = [], properties: { title: ssTitle = '' } = {} } = await this.getSpreadsheet(spreadsheetId);
 
     const sheet = sheets.find(({ properties: { title: ws } = {} }) => ws === title);
-    if (!sheet) throw `Sheet "${title}" not found in "${ssTitle}"`;
+    if (!sheet) throw new Error(`Sheet "${title}" not found in "${ssTitle}"`);
 
-    this.worksheetTitle = get(sheet, 'properties.title');
+    this.worksheetTitle = sheet?.properties?.title;
     return sheet;
   }
 
@@ -153,7 +155,7 @@ export default class GoogleSheet {
     }
 
     if (!options.worksheetTitle) {
-      throw 'Option property "worksheetTitle" is required';
+      throw new Error('Option property "worksheetTitle" is required');
     }
 
     const sheet = await this.getWorksheet(options.worksheetTitle, spreadsheetId);
@@ -170,8 +172,8 @@ export default class GoogleSheet {
       range: getRange(sanitizedOptions),
     });
 
-    const range = get(res, 'data.range');
-    let values = get(res, 'data.values');
+    const range = res.data.range;
+    let values = res.data.values;
 
     let header: string[] = [];
     if (sanitizedOptions.hasHeaderRow) {
@@ -188,12 +190,41 @@ export default class GoogleSheet {
             range: undefined,
           }),
         });
-        [header] = get(res, 'data.values', [[]]);
-        if (!header.length) throw 'No header row exists';
+        [header] = res.data.values ?? [[]];
+        if (!header.length) throw new Error('No header row exists');
       }
     }
 
-    let maxCol = (sanitizedOptions.maxCol ? sanitizedOptions.maxCol + 1 : 0) - (sanitizedOptions.minCol || 0);
+    // Where the generated `(A)`, `(B)` labels below start counting, and how many of them there
+    // are. With an explicit minCol it is minCol, as it always was. With minCol absent it depends
+    // on whether 2.2.x got this far at all, and the two cases are deliberately different.
+    //
+    // 2.2.x used 0 here. `colToA` refuses anything below 1, and the loop below only calls it for
+    // a blank heading, so `colToA(0)` was reached exactly when minCol was absent *and* header[0]
+    // was falsy - and only at c === 0, because for c >= 1 the argument was already at least 1.
+    // That splits every call into two populations that cannot overlap, since one call has one
+    // header[0]:
+    //
+    //   header[0] present -> 2.2.x returned a result. Its generated labels were wrong: with
+    //                        origin 0 it named column B "(A)" and column D "(C)", one column to
+    //                        the left of the cell each label sits over, and the same arithmetic
+    //                        emitted one label too many when the read returned no rows. Those
+    //                        wrong labels are the keys of the `formatted` objects, and the
+    //                        GitHub action serialises them into its `results` output, so a
+    //                        workflow may be reading them today. They are kept. Do not "fix"
+    //                        them here: correcting them is a change to output that currently
+    //                        works, which belongs in a release that announces it.
+    //   header[0] absent  -> 2.2.x threw `col has to be greater than 1` and returned nothing.
+    //                        Nothing can depend on a throw, so this is the one place free to use
+    //                        the origin the range actually has: `getRange` reads from
+    //                        `colToA(minCol || 1)`, so column 1 it is.
+    //
+    // The asymmetry is the point. It preserves everything that worked and unblocks everything
+    // that did not, and it is measured against published 2.2.0 in test-docs/revive-v3.md.
+    const returnedOn22x = Boolean(header && header[0]);
+    const labelOrigin = sanitizedOptions.minCol || (returnedOn22x ? 0 : 1);
+
+    let maxCol = (sanitizedOptions.maxCol ? sanitizedOptions.maxCol + 1 : 0) - labelOrigin;
     let maxRow = 0;
     if (values) {
       maxCol = getLongestArray(values).length;
@@ -202,7 +233,7 @@ export default class GoogleSheet {
 
     // fill missing headings
     for (let c = 0; c < maxCol; c++) {
-      header[c] = header[c] || `(${colToA(c + (sanitizedOptions.minCol || 0))})`;
+      header[c] = header[c] || `(${colToA(c + labelOrigin)})`;
     }
 
     let formatted: GoogleSheetCli.FormattedData[] = [];
@@ -267,7 +298,9 @@ export default class GoogleSheet {
     // things, whichever way the range spelled it. 2.2.0 resolved that silently in the range's
     // favour, because getRange hands the range to the API untouched, and a fix release may not
     // turn a call that worked into a failure. So: say which one wins, then do what 2.2.0 did.
-    // Refusing the call outright is held for 3.0.0 (see test-docs/revive-v3.md).
+    // 3.0.0 keeps the warning rather than turning it into a refusal: a refusal would break a
+    // call every 2.x release completed, and every other break in that major is a platform
+    // move. See test-docs/revive-v3.md for the decision.
     const contradicted = Boolean(rangeTitle && namedTitle && rangeTitle !== namedTitle);
     if (contradicted) {
       warn(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"; writing to "${rangeTitle}", as 2.2.x did`);
@@ -276,9 +309,9 @@ export default class GoogleSheet {
     // The range's worksheet is where the write lands whenever it won, so it is also the one to
     // resolve and to grow. Growing the other one would add rows to a sheet nobody wrote to.
     const targetTitle = (quoted || contradicted ? rangeTitle : undefined) || options.worksheetTitle;
-    if (!targetTitle) throw 'Specify worksheetTitle';
+    if (!targetTitle) throw new Error('Specify worksheetTitle');
     if (!Array.isArray(data) || !data.every(Array.isArray)) {
-      throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+      throw new Error('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
     }
     // A job that writes "whatever came in today" and finds nothing succeeded on every quiet day
     // before 2.3.0, so an empty array stays a success. It just no longer costs a request.
@@ -361,8 +394,8 @@ export default class GoogleSheet {
         ],
       },
     });
-    const sheet = get(response, 'data.replies[0].addSheet');
-    this.worksheetTitle = get(sheet, 'properties.title');
+    const sheet = response.data.replies?.[0]?.addSheet;
+    this.worksheetTitle = sheet?.properties?.title;
     return sheet;
   }
 

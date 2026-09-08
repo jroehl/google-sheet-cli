@@ -1,5 +1,5 @@
-import { expect } from '@oclif/test';
-import { testRun, DATA_APPEND as worksheetTitle } from '../helper';
+import { expect } from 'chai';
+import { describeLive, testRun, DATA_APPEND as worksheetTitle } from '../helper';
 
 const baseCommand = 'data:append';
 
@@ -9,7 +9,7 @@ const DATA = [
 ];
 const DATA_STRING = JSON.stringify(DATA);
 
-describe(baseCommand, () => {
+describeLive(baseCommand, () => {
   testRun([baseCommand, DATA_STRING], { worksheetTitle }, (stdout: string) => {
     expect(stdout).to.contain(`Data successfully appended to "${worksheetTitle}"`);
   });

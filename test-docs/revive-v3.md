@@ -534,7 +534,7 @@ node@18` is blocked by the sandbox network allowlist (`deny network-outbound nod
 path as Node 20, which passes — but that is an argument, not a run. The Node 18 leg is first
 verified by CI.
 
-## Final review — R28: the contradiction warns in 2.3.0, and throws in 3.0.0
+## Final review — R28: the contradiction warns in 2.3.0, and keeps warning in 3.0.0
 
 Round 3 shipped a hard refusal for the case where the caller passes an explicit `worksheetTitle`
 and a `range` naming a different worksheet:
@@ -561,12 +561,21 @@ grid that grows is the one the write lands in — and a caller whose explicit `w
 a sheet that does not exist is no longer refused by the extra `getWorksheet` read either, which is
 another way the refusal could have failed a call 2.2.0 completed.
 
-**For 3.0.0**, restore the throw. The message and the exact condition are the ones above; it is a
-breaking change, it belongs in a major, and it wants a release note telling callers to drop one of
-the two values. Pinned meanwhile by `2.2.x: an unquoted range worksheet that contradicts the
-explicit title is written to, with a warning` in `test/regression.test.ts` and by
-`warns, then writes to the range worksheet, when it contradicts worksheetTitle` in
-`test/grid-growth.test.ts`.
+**For 3.0.0** this paragraph originally said "restore the throw", and that was looser wording than
+it should have been: it read as a promise rather than an option. **Decided in Step 16: the warning
+stays in 3.0.0 and the throw is not restored.** The reasoning that made it a warning in the first
+place has not changed — 2.2.x wrote to the sheet the range named, and refusing that call is a
+behavioural break. Every other breaking change in 3.0.0 is a platform change: the Node floor, the
+bin paths, the error types, the oclif upgrade. Folding a behavioural refusal into the same release
+blurs what the major is about and hands a user two unrelated reasons to be broken at once. The
+warning already puts the contradiction in front of them; a later release can turn it into a refusal
+once it has been in the wild for a while.
+
+Pinned by `2.2.x: an unquoted range worksheet that contradicts the explicit title is written to,
+with a warning` in `test/regression.test.ts` and by `warns, then writes to the range worksheet, when
+it contradicts worksheetTitle` in `test/grid-growth.test.ts`. Those two are the tripwire: whoever
+eventually makes it a refusal has to change them deliberately, which is the point. The README's
+"Changes in 2.3.0" section and its migration notes both say the warning is what 3.0.0 does.
 
 ## Final review — two live assertions are discovery tests, on purpose
 
@@ -621,3 +630,512 @@ With a quoted range and an explicit title, 2.2.0 left `worksheetTitle` mutated t
 worksheet; 2.3.0 leaves what the caller passed. The data lands in the same cells either way. It is
 observable through the GitHub action, which serialises `command.kwargs` into its `results` output,
 so a workflow reading `kwargs[1].worksheetTitle` after such a call sees a different value.
+
+## Step 13 — the `2.x` maintenance branch, to be cut by the maintainer after 2.3.0 is on npm
+
+Step 13's brief opened by creating `2.x` from the `v2.3.0` tag. That tag does not exist: 2.3.0 has
+not been published, so there is nothing to branch from and nothing for a dry run to compare
+against. The branch is therefore **not** created here. Everything it will need is written out
+below so that cutting it later is a copy, not a design exercise.
+
+**Order of operations for the maintainer**
+
+1. Merge and push the 2.3.0 work; let the release workflow publish `2.3.0` to npm.
+2. `git branch 2.x v2.3.0 && git switch 2.x`.
+3. Add the `.releaserc` below **on `2.x` only**. Master is on 3.x by then, so declaring a `2.x`
+   maintenance range no longer risks the `EMAINTENANCEBRANCH` failure that Step 7 avoided.
+4. Gate on `npx semantic-release --dry-run --no-ci` printing a `2.3.x` next version. A green
+   workflow run is not the gate; the dry run is.
+5. Prove the path end to end with one README-only commit,
+   `fix: point 2.x users at the 3.x migration notes`, and confirm `npm view google-sheet-cli@2.3.1
+   version` prints `2.3.1`. Nothing follows it: there is no dist-tag to move, because `@^2` picks
+   the new patch up on its own.
+
+**`.releaserc`, verbatim**
+
+```json
+{
+  "branches": [{ "name": "2.x", "range": "2.x" }, "master"]
+}
+```
+
+**Workflow trigger and publish condition**
+
+Both are already in `.github/workflows/test-and-release.yml` on master and are inherited by the
+branch; they are repeated here so a hand-built branch can be checked against them.
+
+```yaml
+on:
+  push:
+    branches:
+      - master
+      - 2.x
+```
+
+```yaml
+  publish:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/2.x')
+```
+
+**One thing to change on the branch after cutting it.** 3.0.0 raises the Node floor to 22 and the
+workflow's matrix with it. The 2.x line still supports Node 18, so on `2.x` the matrix and the
+`NODE_OPTIONS: --no-experimental-strip-types` step have to stay as they were at the 2.3.0 tag —
+that is what the tag carries, so simply not touching the workflow on `2.x` is correct.
+
+## Step 13 — `ux.table` has no successor in `@oclif/core` 5
+
+`data:get` contributed eight flags through `ux.table.flags()` — `--columns`, `--sort`, `--filter`,
+`--csv`, `--output`, `-x/--extended`, `--no-truncate`, `--no-header` — and rendered through
+`ux.table`. Core 4 deleted both and core 5 has no replacement. The official successor,
+`@oclif/table`, renders a boxed table, contributes no flags, and pulls in React and ink.
+
+Dropping the flags was not an option: `data:get --csv` and friends are shipped surface. The table
+implementation from `@oclif/core@2.8.11` is therefore carried in `src/lib/table.ts`, unchanged
+apart from being TypeScript, with the four libraries it uses (`chalk`, `js-yaml`, `natural-orderby`,
+`string-width`) promoted from transitive dependencies of core 2 to direct dependencies. All four
+were already installed at 2.3.0, so the dependency tree is roughly a wash.
+
+Output was compared byte for byte against `@oclif/core@2.8.11`'s `ux.table` over the `data:get`
+fixture in eleven flag combinations (default, `--no-header`, `--csv`, `--output=json`,
+`--output=yaml`, `--sort`, `--sort=-`, `--columns`, `--filter`, `--extended`, `--no-truncate`),
+piped and with `OCLIF_COLUMNS=14 CLI_UX_SKIP_TTY_CHECK=1` to force the truncation path. Identical
+in every case, ANSI escapes included.
+
+The one trap found on the way: `import * as chalk from 'chalk'` compiles under `module: node16`
+but `chalk.bold` is undefined at runtime, because `__importStar` does not copy chalk's
+non-enumerable style getters. It has to be a default import.
+
+## Step 13 — the type-stripping workaround is gone
+
+Step 7 recorded that Node 22.18 and later could not run the offline suite: mocha 10 imported the
+`.ts` specs as ES modules, ts-node's CommonJS hook never ran, and `@oclif/test` 2 died reading
+`module.parent.filename`. CI carried `NODE_OPTIONS: --no-experimental-strip-types` for it.
+
+mocha 12 requires the specs through ts-node again and `@oclif/test` 5 no longer reads
+`module.parent`, so the flag is unnecessary. Verified with the flag unset:
+
+```
+node v22.22.0  npm run test:unit → 160 passing
+node v24.11.1  npm run test:unit → 160 passing
+```
+
+and with the flag still set on Node 24, also 160 passing — so a stale `NODE_OPTIONS` somewhere
+would not break anything, it is simply no longer needed. The env block is removed from the
+workflow and the matrix moves to `[22, 24]` for pull requests and `[24]` for pushes, matching
+`engines.node >= 22`.
+
+## Step 13 — `@oclif/test` 5's `runCommand` re-splits its arguments
+
+`runCommand(argv)` joins the array with spaces and splits it again, honouring double quotes only.
+An argument containing a space therefore arrives as two arguments unless it is written with
+embedded quotes:
+
+```ts
+runCommand(['data:update', '-s', 'x', '-t', 'y', 'not json'])    // → Unexpected argument: json
+runCommand(['data:update', '-s', 'x', '-t', 'y', '"not json"'])  // → the JSON error, as intended
+```
+
+The command suite is safe as written — `JSON.stringify` emits no spaces and the worksheet titles
+are generated without them — but anything added later that passes a value with a space in it has
+to quote it.
+
+## Step 13 — two more lines for the 3.0.0 release notes
+
+Step 16 writes the "Migrating from 2.x" section. Beside the Node 22 floor, the `bin/run.js` and
+`bin/dev.js` paths and errors becoming `Error` instances, two things found during the migration
+belong there and would otherwise be lost.
+
+**`help`'s argument is rendered differently.** `@oclif/plugin-help` 7 declares the argument as a
+variadic, so the usage line and the docs move from
+
+```
+  $ google-sheet help [COMMANDS] [-n]
+
+ARGUMENTS
+  COMMANDS  Command to show help for.
+```
+
+to
+
+```
+  $ google-sheet help [COMMAND...] [-n]
+
+ARGUMENTS
+  [COMMAND...]  Command to show help for.
+```
+
+Nothing about invoking it changes — `google-sheet help data:get` works exactly as before — but the
+strings are in `docs/help.md` and in anyone's screenshots, so the change is worth naming rather
+than leaving to be discovered.
+
+**`js-yaml` is pinned to 3.x on purpose.** `src/lib/table.ts` calls `safeDump`, which 4.x renamed
+to `dump` as part of making the safe schema the default. The pin exists so `data:get --output=yaml`
+emits byte-for-byte what 2.2.x emitted, which is the property the whole vendored table was
+verified against. 3.14.1 is end of life, so a dependency bot or a later reader will see it as
+neglect: it is a deliberate compatibility pin, and moving it means re-running the table comparison
+in this document, not just changing the version.
+
+## Step 14 — the wire, before and after the client swap
+
+Written in Step 16: Step 14 recorded all of this in its task report and added no section here, which
+breaks this file's per-step convention. The report does not ship; this does.
+
+`googleapis` 118 was replaced by `@googleapis/sheets` 14. The auth stack under it moved with it:
+
+```
+gaxios              5.1.3   →  7.1.3
+google-auth-library 8.9.0   →  10.5.0
+googleapis-common   6.0.4   →  8.0.3
+gtoken              6.1.2   →  8.0.0
+```
+
+(Read out of `package-lock.json` at `235bbbe` and at HEAD. The fake's comment credited gtoken **5**
+for the old endpoint; the base resolves 6.1.2. Corrected in Step 16.)
+
+**The Sheets request sequence is unchanged.** Step 14 drove 24 scenarios covering all ten public
+methods through `test/fake-sheets.ts` and recorded `{method, url, body}` for every request, at the
+base commit, after the swap and after the `Error` change; its reviewer repeated the exercise from a
+reconstructed base with the old `googleapis` installed. Same count, same order, same method, same
+URL, same query string, same body, same returned shapes, same `GaxiosError` surface, in every one.
+
+What did change is the token request and the headers. Recorded in Step 16 by intercepting
+`https.request` under each client in turn and printing what it was actually handed — an independent
+run, not a re-read of the report:
+
+```
+2.x   POST https://www.googleapis.com/oauth2/v4/token
+      scope           https://spreadsheets.google.com/feeds/
+      Content-Type    application/x-www-form-urlencoded
+      Accept-Encoding gzip,deflate
+      Accept          application/json
+      User-Agent      google-api-nodejs-client/8.9.0
+
+3.x   POST https://oauth2.googleapis.com/token
+      scope           https://www.googleapis.com/auth/spreadsheets
+      Content-Type    application/x-www-form-urlencoded;charset=UTF-8
+      Accept-Encoding gzip, deflate, br
+      Accept          application/json
+      User-Agent      google-api-nodejs-client/10.5.0
+```
+
+and on the Sheets call itself, `GET https://sheets.googleapis.com/v4/spreadsheets/<id>` both times:
+
+```
+2.x   Accept application/json   Accept-Encoding gzip   x-goog-api-client gdcl/6.0.4 gl-node/…
+3.x   Accept */*                Accept-Encoding gzip   x-goog-api-client gdcl/8.0.3 gl-node/…
+```
+
+Google ignores all of it. The endpoint is the one operational consequence: an egress allowlist
+naming only `www.googleapis.com` has to gain `oauth2.googleapis.com`, or the first token fetch
+fails and nothing else runs. `sheets.googleapis.com` is unchanged. Both halves are in the README's
+migration section.
+
+Note the direction of the `Accept` change on the Sheets call: `application/json` → `*/*` is the
+header getting **looser**, so nothing upstream starts refusing to answer. What it can break is
+something in the middle that was matching on the old value — a proxy rule, a request filter, a
+recorded-cassette fixture. The README says so in that direction rather than just printing the pair.
+
+**The scope and who has to re-grant it.** `https://spreadsheets.google.com/feeds/` (the retired
+Sheets v3 feed scope, which v4 still accepted for a service account minting its own token) became
+`https://www.googleapis.com/auth/spreadsheets`. A service account that was shared onto a
+spreadsheet from the Sheets UI needs nothing: it signs its own assertion for whatever scope it
+asks for, and the sharing is what grants the access. A service account used through Workspace
+**domain-wide delegation** is the exception — the allowed-scope list lives in the Admin console,
+keyed by the client ID, and until an administrator adds the new scope every call returns 401.
+Nothing here can prove that against a real Workspace tenant; it follows from how delegation is
+authorised, and it is the one line in the migration notes that could cost a user a whole outage.
+
+**`skipLibCheck: true` in `tsconfig.json`.** Required, not tidying: gtoken 8 is `"type": "module"`
+and names its CommonJS types `.d.ts`, so TypeScript classifies them as ESM and `tsc` fails with
+TS1479 on `google-auth-library`'s `jwtclient.d.ts`. Correct at runtime (its `exports.require`
+condition points at a real `.cjs`), unfixable from here.
+
+**The `./sheet` subpath and what the `exports` map seals.** Re-verified in Step 16 against a
+consumer project with the package linked in, on Node 24.11.1:
+
+```
+google-sheet-cli                            OK    lib/index.js
+google-sheet-cli/sheet                      OK    lib/lib/google-sheet.js
+google-sheet-cli/lib/lib/google-sheet       OK    lib/lib/google-sheet.js   (the action's path)
+google-sheet-cli/lib/lib/google-sheet.js    OK    lib/lib/google-sheet.js
+google-sheet-cli/package.json               OK
+google-sheet-cli/oclif.manifest.json        FAIL  ERR_PACKAGE_PATH_NOT_EXPORTED
+```
+
+The manifest was reachable before `exports` existed. Nothing in this repo or the action reads it,
+but it is a 3.0.0 surface change and is named in the migration notes rather than left to be found.
+
+TypeScript resolution, same consumer, `tsc --noEmit` over one file importing the subpath and one
+importing the deep path:
+
+```
+moduleResolution node16   exit 0
+moduleResolution node10   TS2307 on 'google-sheet-cli/sheet' only; the deep path resolves
+                          ("There are types at …/lib/lib/google-sheet.d.ts, but this result could
+                           not be resolved under your current 'moduleResolution' setting.")
+```
+
+So the subpath needs `node16`, `nodenext` or `bundler` on the consumer side. That is why the deep
+path is kept working by the two `./lib/*` patterns instead of being sealed with everything else.
+
+## Step 15 — what the offline command layer catches, and what slips
+
+Written in Step 16, for the same reason as Step 14's section.
+
+`test/commands/offline.test.ts` stubs `src/lib/factory` and drives every command's `--help` plus a
+stubbed `data:get` and two failing `data:update` calls, so the oclif 5 flag surface is a pull-request
+gate for the first time. The offline suite went 165 → 180.
+
+Its reviewer ran 13 of its own mutations rather than repeating the implementer's two. Recorded here
+because the honest half is the half that gets lost:
+
+- **Caught**: a renamed, dropped or added flag; a changed short character; required-ness; a changed
+  default; an env binding; integer coercion; the vendored table's header capitalisation; the stdout
+  channel for `--rawOutput`; a tenth command appearing.
+- **Slips**: the bodies of the seven commands whose run paths are not stubbed; user-facing message
+  text; generated descriptions; the non-raw return value.
+
+Two known fragilities, deferred rather than fixed: the stub is cast in a way that turns off the
+structural check on its shape, and the `--help` expectations are coupled to `@oclif/plugin-help`'s
+exact rendering, so a grouped dependabot bump of the help plugin can turn the suite red with no
+behaviour change. If that happens, read the diff before "fixing" the test — the rendering moving is
+not the same as a flag moving.
+
+Two pins are deliberately behind the current major and should move in step with the action
+repository, not unilaterally: `actions/checkout` and `actions/setup-node` at v5 while v7 is current,
+and `codeql-action` at v3 while v4 exists. Both lines were still receiving releases when they were
+pinned.
+
+## Step 16 — publishing 3.0.0
+
+The documentation is written; every step below is the repository owner's, and each push needs their
+confirmation for that specific push.
+
+**There is no `v2` dist-tag, and that is deliberate.** The plan called for one, so that a 2.x user
+kept a stable install path once `latest` moved to 3.0.0. Publishing now goes through OIDC trusted
+publishing with no npm token anywhere, so nothing in CI can create or move a dist-tag, and a human
+would have to re-point it by hand on every future 2.x release — a standing chore whose only failure
+mode is silent staleness. `google-sheet-cli@^2` gives a 2.x user the same guarantee, always resolves
+to the newest 2.x without maintenance, and is what the README's migration section tells them to use.
+Nothing in the order below depends on a dist-tag existing.
+
+1. **Confirm 2.3.0 is on npm.** `npm view google-sheet-cli version` prints `2.3.0`. Steps 4-7 have to
+   have shipped; 3.0.0 cannot be the release that also carries the 2.3.0 fixes to their tag.
+
+3. **Merge `modernize` into `master` so semantic-release reads a major.** The branch carries
+   `feat!:` and `refactor!:` commits. If the merge is a squash, those subjects collapse into one
+   message and the squash message itself has to carry the marker — `feat!: …` plus a
+   `BREAKING CHANGE:` footer naming the Node 22 floor. A squash that loses the `!` cuts a minor, and
+   the version is then permanent.
+
+4. **Gate on a dry run before pushing.** With the merge made locally and nothing pushed:
+
+   ```sh
+   npx semantic-release --dry-run --no-ci
+   ```
+
+   It must say the next version is `3.0.0`. If it says `2.4.0`, step 3's commit message lost the
+   breaking marker; fix the message, do not push.
+
+5. **Push `master`.** `.github/workflows/test-and-release.yml` runs the live suite on Node 24, then
+   the `publish` job runs `semantic-release`, which publishes 3.0.0 and tags `v3.0.0`. This is the
+   first execution of the live suite since the migration, and the first execution ever of the two
+   discovery assertions described above.
+
+6. **Verify from outside the repository.**
+
+   ```sh
+   npm view google-sheet-cli version                   # 3.0.0
+   npm view google-sheet-cli dist-tags                 # latest: 3.0.0, and nothing else
+   npm view google-sheet-cli@^2 version                # 2.3.0, the newest 2.x
+   npx google-sheet-cli@3 --help                       # on Node 24
+   # the 2.x line still runs on the old floor: --package=node@20 puts Node 20 first on PATH,
+   # so the bin script's `env node` shebang picks it up
+   npx --package=node@20 --package=google-sheet-cli@^2 -- google-sheet --help
+   ```
+
+7. **Cut the `2.x` maintenance branch.** Two halves with different preconditions, and it is worth
+   not confusing them:
+
+   - **The branch itself** — `git branch 2.x v2.3.0` — needs only the `v2.3.0` tag, so it can be cut
+     any time after step 1. Doing it early is harmless and gives fixes somewhere to land.
+   - **Its release configuration** — the `.releaserc` naming the `2.x` maintenance range — must wait
+     until master is on 3.0.0, i.e. after step 5. Declaring a `2.x` maintenance range while master
+     is still 2.x is the `EMAINTENANCEBRANCH` failure Step 7 avoided.
+
+   Both halves, the workflow trigger the branch inherits and the `semantic-release --dry-run` that
+   gates the configuration are written out verbatim in *Step 13 — the `2.x` maintenance branch*
+   above. Until the branch exists, the README says a `2.x` branch "is being cut" rather than
+   claiming it is there.
+
+8. **Provenance is a follow-up.** `id-token: write` on the publish job and `NPM_CONFIG_PROVENANCE=true`
+   land as their own pull request *after* 3.0.0 is on npm, so that a provenance misconfiguration
+   cannot fail the release itself.
+
+Not done here, and deliberately: nothing in Step 16 merged, tagged, pushed, published or touched a
+dist-tag. Documentation only.
+
+## Step 16 fix wave — the swallowed error, the column origin, and the gate that missed both
+
+Two reviews of `bf4216e..81ef740` came back "ship with fixes". What follows is what was measured,
+not what was reasoned.
+
+### Every cli error message was being swallowed
+
+A failing command exited 1 and printed nothing at all unless `-r/--rawOutput` was given.
+`ux.action.start()` replaces `process.stdout.write` and `process.stderr.write` with buffering
+stubs and only `stop()` puts them back and flushes; `@oclif/core` 2 flushed that buffer from a
+`process.once('exit')` hook (`lib/cli-ux/index.js`, calling `config.action.stop()` with no
+argument), core 5 removed the hook, and `src/lib/base-class.ts` overrides oclif's own
+`Command.catch`, which calls `ux.action.stop()` for exactly this reason. So the text
+`Errors.handle` wrote went into a buffer nobody emptied. `-r` escaped it because it is the one
+mode that never starts a spinner.
+
+Measured on the built binary, ten runs each, before and after:
+
+```
+                                        before      after
+bad JSON data          (spinner)         0/10       10/10
+non-nested data        (spinner)         0/10       10/10
+no worksheetTitle      (spinner)         0/10       10/10
+missing required flag  (pre-spinner)    10/10       10/10
+unknown command        (pre-spinner)    10/10       10/10
+   … and each of the five again with -r  10/10      10/10
+```
+
+Exit codes were 1 (and 2 for an unknown command) throughout, before and after. `bin/dev.js`
+behaves identically to `bin/run.js` on all of it.
+
+The stop is unconditional rather than routed through this class's own `stop()`, which is gated on
+`rawOutput`: `ActionBase.stop()` returns immediately when no task is running, so calling it on a
+path that never started a spinner is a genuine no-op — read in
+`node_modules/@oclif/core/lib/ux/action/base.js` and pinned by a test asserting no stray "done"
+appears on a parse failure. `catch` is the only way out of a command that can leave the stubs
+installed: every command pairs `this.start(...)` with `this.stop()` on the success path, nothing
+calls `this.exit()` or `process.exit()`, and the credential prompts run in `init()` before any
+spinner exists.
+
+The message that now appears is 2.2.0's, `Updating data... done` followed by the error, because
+2.2.0's exit hook also called `stop()` with the default argument. oclif's own `catch` would have
+printed a red `!` instead; that was never what this cli did, since the override replaced
+`Command.catch` on core 2 as well.
+
+### Why nothing caught it, and what does now
+
+`test/commands/offline.test.ts` drives commands through `@oclif/test`'s `runCommand`, which hands
+back the thrown error and never calls `Errors.handle`. Nothing in the suite looked at a terminal,
+so a defect where the exit code and the error object are both right and only the rendering is gone
+was invisible. `.github/workflows/test-and-release.yml` gated pull requests on `npm run test:unit`
+plus `./bin/run.js --help`, a success path. That is the whole reason this reached a final review.
+
+Two gates now exist, and both were watched failing with the fix reverted and the binary rebuilt:
+
+```
+npm run test:unit                     exit 4, 187 passing, 4 failing
+the workflow's "cli smoke test" step   exit 1, "::error::the cli exited non-zero but
+                                       printed no error message"
+```
+
+and both go green when it is restored. The smoke step's script was extracted from the YAML with a
+parser rather than retyped, so what ran locally is the text the runner will execute. Neither the
+test nor the step needs credentials: `authorize` only constructs a JWT client, the token is
+fetched lazily on the first API call, and the commands they drive fail before any request. So both
+run on a fork pull request.
+
+### `getData` with no `minCol`, and the labels 2.2.0 got wrong
+
+`getData({ worksheetTitle })` and a whole-worksheet quoted range threw `col has to be greater than
+1` on 2.2.0, on 2.3.0 and on the first attempt at this wave's fix. `getRange` resolves an absent
+`minCol` to `colToA(minCol || 1)`, so the request went to A1; two lines in `getData` said
+`minCol || 0`, so the loop naming unlabelled columns asked for `colToA(0)`. The cli never reached
+it (`data:get` defaults `--minCol` to 1), which is also why the regression suite never reached it.
+
+**The first fix here was `|| 0` → `|| 1` on both lines, and it was wrong.** It removed the throw,
+but it also changed the answer for calls 2.2.0 had completed successfully. A re-review caught it;
+this section records what the second attempt establishes, because the reasoning is what stops it
+being "cleaned up" later.
+
+`colToA` refuses anything below 1, and the label loop only calls it for a *blank* heading. So
+`colToA(0)` was reached exactly when `minCol` was absent **and** `header[0]` was falsy, and only at
+column index 0 — for `c >= 1` the argument was already at least 1. That splits every call into two
+populations, and they cannot overlap, because one call has one `header[0]`:
+
+| | `header[0]` present | `header[0]` absent |
+|---|---|---|
+| **2.2.0** | returned a result | threw `col has to be greater than 1` |
+| **what it means** | output that works today | nothing can depend on it |
+
+`header[0]` is present exactly when `hasHeaderRow: true` and the header row's first cell is
+non-empty. So the fix is scoped to the origin: `minCol || (header[0] ? 0 : 1)`, used for both the
+label loop and the `maxCol` arithmetic that decides how many labels there are.
+
+**2.2.0's labels in the preserved population are wrong, and are kept anyway.** Worksheet
+`HeaderOnly`, header row `A1='h1'`, `B1` blank, `C1='h3'`, read with
+`{hasHeaderRow: true, minRow: 2, maxCol: 4}` — a four-column range:
+
+| spreadsheet column | A | B | C | D | |
+|---|---|---|---|---|---|
+| header cell | `h1` | *(blank)* | `h3` | *(none)* | |
+| **2.2.0, and this branch** | `h1` | `(A)` | `h3` | `(C)` | plus a fifth entry `(D)` |
+| **what would be correct** | `h1` | `(B)` | `h3` | `(D)` | four entries |
+
+Every generated label points one column to the left of the cell it sits over, and the same
+arithmetic emits one label too many when the read returns no rows. Those labels are the keys of
+every `formatted` row, and the GitHub action serialises `formatted` into its `results` output, so a
+workflow may be reading `formatted[0]["(B)"]` today. Correcting them is a change to output that
+currently works: it is a candidate for a later release that announces it, not something to slip
+into a platform major. Where 2.2.0 threw instead, the corrected origin is used, because nothing can
+depend on a throw. The asymmetry is deliberate and `src/lib/google-sheet.ts` says so at the point
+of the code.
+
+Measured by driving published 2.2.0 and each candidate implementation through `test/fake-sheets.ts`
+over **125 shapes**: six worksheet fixtures (regular, ragged header, header-only with a blank
+middle heading, blank first heading, empty, header row wider than its data) crossed with
+`hasHeaderRow`, `minCol` absent/0/1/2 and `minRow` absent/2 — 96 shapes — plus `maxCol`/`maxRow`
+variants, the four range forms (quoted bounded, quoted anchor, whole-worksheet, unquoted), the
+degenerate shapes, and six chained-call scenarios on one shared instance. The OAuth token request
+is normalised away, because its endpoint and scope moved with the `@googleapis/sheets` swap and are
+identical on every call; the fake's internal sheetId counter is normalised because `reset()` does
+not rewind it. Everything else — Sheets requests, return values, thrown values — is compared
+verbatim.
+
+```
+                                       identical   different   unblocked   of
+81ef740   (L2 not fixed at all)           115           1           9      125
+first attempt (|| 0 -> || 1)               68          15          42      125
+this branch   (scoped origin)              83           0          42      125
+```
+
+The scoped fix unblocks exactly the same 42 shapes as the first attempt and introduces no
+difference at all. The first attempt's 15 differences are 14 label changes it introduced plus one
+inherited from 2.3.0; `81ef740`'s single difference is that same inherited one — `appendData`
+followed by `getData`, where the branch sends one extra spreadsheet read to size the grid before
+writing, which is the documented 2.3.0 change. It appears as `different` at `81ef740` (both
+implementations throw, but the request lists differ) and inside the `unblocked` bucket afterwards;
+the harness reports that case separately rather than letting the bucket hide it.
+
+Six regression cases pin the preserved labels, including both no-row shapes, the chained-instance
+pattern the action uses, `minCol: 0` as a synonym for absent, and an explicit `minCol: 1` keeping
+its own (different, correct) labels. Five of the six fail against the first attempt. The two cases
+the first attempt added — an omitted `minCol` equalling an explicit `minCol: 1` — still hold, since
+both are `hasHeaderRow`-free and therefore in the unblocked population.
+
+### Two release-script orderings
+
+`package.json`'s `version` script ran `oclif readme --multi` before anything built `lib/`, and
+semantic-release runs `npm version` during *prepare*, before `npm publish` fires `prepack`.
+Measured with `lib/` removed: oclif warns `No compiled source found at lib`, the README's command
+list loses `data`, `spreadsheet` and `worksheet` and keeps only `help`, and the script stages that.
+It exits 0 and `prepack` regenerates the file correctly before packing, so the published tarball is
+right today — it stops being right the day `@semantic-release/git` is added. The script now builds
+first; the same run then leaves `README.md` and `docs/` byte-identical, and `npm pack`'s README is
+byte-identical to the committed one.
+
+`bin/clean.sh` quoted its glob so it never expanded and relied on an unquoted expansion downstream,
+and used `sed -i` in the form only GNU sed accepts, which is what the `gsed` branch was working
+around. It now expands the glob as a glob, quotes every path at the point of use, derives `docs/`
+from its own location rather than the caller's working directory, and edits through a temporary
+file so no sed dialect test is needed. Verified against the generator's raw output: old and new
+scripts produce byte-identical files, the new one also from a directory whose name contains a
+space and with the working directory elsewhere, and `oclif readme --multi && sh ./bin/clean.sh`
+still reproduces the committed `README.md` and `docs/` exactly.

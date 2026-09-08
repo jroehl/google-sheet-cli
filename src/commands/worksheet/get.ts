@@ -25,6 +25,8 @@ Fetched "<worksheetTitle>" (<id>)
     const worksheet = await this.gsheet.getWorksheet(worksheetTitle, spreadsheetId);
     const { properties: { title = '', sheetId = '' } = {} } = worksheet;
     this.stop();
-    this.logRaw(`Fetched "${title}" (${sheetId})`, { operation: this.id, ...worksheet });
+    const result = { operation: this.id, ...worksheet };
+    this.logRaw(`Fetched "${title}" (${sheetId})`, result);
+    return result;
   }
 }

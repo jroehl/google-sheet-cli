@@ -1,10 +1,10 @@
-import { expect } from '@oclif/test';
-import { sheets_v4 } from 'googleapis';
-import { testRun, WORKSHEET_GET as worksheetTitle } from '../helper';
+import { expect } from 'chai';
+import { sheets_v4 } from '@googleapis/sheets';
+import { describeLive, testRun, WORKSHEET_GET as worksheetTitle } from '../helper';
 
 const baseCommand = 'worksheet:get';
 
-describe(baseCommand, () => {
+describeLive(baseCommand, () => {
   testRun([baseCommand], { worksheetTitle }, (stdout: string) => {
     expect(stdout).to.contain(`Fetched "${worksheetTitle}" (`);
   });

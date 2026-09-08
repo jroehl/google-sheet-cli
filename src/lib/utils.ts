@@ -25,7 +25,7 @@ export const getLongestArray = (array: any[][]): { index: number; array: any[]; 
  * @returns {string}
  */
 export const colToA = (col: number): string => {
-  if (col < 1) throw 'col has to be greater than 1';
+  if (col < 1) throw new Error('col has to be greater than 1');
 
   const { length } = ALPHABET;
 
@@ -51,7 +51,7 @@ export const colToA = (col: number): string => {
  */
 export const aToCol = (label: string): number => {
   const match = label.match(/[A-Z0-9]+/);
-  if (!match || match[0].length !== label.length) throw `Label has to be uppercase alphabet letter but is "${label}"`;
+  if (!match || match[0].length !== label.length) throw new Error(`Label has to be uppercase alphabet letter but is "${label}"`);
 
   const col = label
     .split('')

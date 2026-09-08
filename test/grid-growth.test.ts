@@ -1,4 +1,4 @@
-import { expect } from '@oclif/test';
+import { expect } from 'chai';
 import GoogleSheet from '../src/lib/google-sheet';
 import { FakeSheets } from './fake-sheets';
 
@@ -194,7 +194,7 @@ describe('grid growth (#611)', () => {
 
   it('warns, then writes to the range worksheet, when it contradicts worksheetTitle', async () => {
     // 2.2.0 wrote to the range's sheet and said nothing. 2.3.0 says which one wins and writes
-    // to the same place; refusing the call is held for 3.0.0 (test-docs/revive-v3.md).
+    // to the same place. 3.0.0 keeps it a warning rather than a refusal (test-docs/revive-v3.md).
     await gsheet.addWorksheet('Other');
     const said = await stderrOf(() => gsheet.updateData([['a']], { worksheetTitle: FULL, range: `'Other'!A1` }));
     expect(said).to.contain(`range "'Other'!A1" targets worksheet "Other" but worksheetTitle is "${FULL}"; writing to "Other", as 2.2.x did`);
@@ -214,7 +214,8 @@ describe('grid growth (#611)', () => {
 
   it('still rejects data that is not a nested array', async () => {
     const error = await rejection(() => gsheet.updateData(<any>['a'], { worksheetTitle: FULL, minCol: 1, minRow: 1 }));
-    expect(error).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
+    expect(error).to.be.an.instanceOf(Error);
+    expect(error.message).to.equal('Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])');
   });
 
   it('keeps ragged rows ragged and sizes the grid from the longest one', async () => {

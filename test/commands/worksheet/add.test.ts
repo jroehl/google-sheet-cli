@@ -1,10 +1,10 @@
-import { expect } from '@oclif/test';
-import { sheets_v4 } from 'googleapis';
-import { testRun, WORKSHEET_ADD as worksheetTitle } from '../helper';
+import { expect } from 'chai';
+import { sheets_v4 } from '@googleapis/sheets';
+import { describeLive, testRun, WORKSHEET_ADD as worksheetTitle } from '../helper';
 
 const baseCommand = 'worksheet:add';
 
-describe(baseCommand, () => {
+describeLive(baseCommand, () => {
   testRun([baseCommand, '--rawOutput'], { worksheetTitle }, (parsed: sheets_v4.Schema$Sheet) => {
     if (!parsed.properties) throw parsed;
     expect(parsed.properties.title).to.equal(worksheetTitle);

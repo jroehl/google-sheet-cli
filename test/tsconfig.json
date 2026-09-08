@@ -1,7 +1,11 @@
 {
   "extends": "../tsconfig",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // `@oclif/test` 2 pulled the mocha globals in through its own types. Version 5 exports plain
+    // functions, so the suite has to ask for them itself. They stay out of the root tsconfig so
+    // that the published build does not depend on a test-only @types package.
+    "types": ["node", "mocha"]
   },
   "references": [{ "path": ".." }]
 }

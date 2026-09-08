@@ -29,6 +29,8 @@ Worksheet "<worksheetTitle>" successfully renamed to "<newWorksheetTitle>"
     this.start('Renaming worksheet');
     await this.gsheet.renameWorksheet(worksheetTitle, newWorksheetTitle, spreadsheetId);
     this.stop();
-    this.logRaw(`Worksheet "${worksheetTitle}" successfully renamed to "${newWorksheetTitle}"`, { operation: this.id });
+    const result = { operation: this.id };
+    this.logRaw(`Worksheet "${worksheetTitle}" successfully renamed to "${newWorksheetTitle}"`, result);
+    return result;
   }
 }

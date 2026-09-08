@@ -1,5 +1,5 @@
-import { expect } from '@oclif/test';
-import { google, sheets_v4 } from 'googleapis';
+import { expect } from 'chai';
+import { auth, sheets as sheetsApi, sheets_v4 } from '@googleapis/sheets';
 import { normalizeCredentials } from '../src/lib/credentials';
 import GoogleSheet from '../src/lib/google-sheet';
 import { expectRange, getID } from './commands/helper';
@@ -180,8 +180,10 @@ describe('google-sheet grid growth (#611)', () => {
     await gsheet.authorize({ client_email: GSHEET_CLIENT_EMAIL, private_key: GSHEET_PRIVATE_KEY });
 
     const { client_email, private_key } = normalizeCredentials({ client_email: GSHEET_CLIENT_EMAIL, private_key: GSHEET_PRIVATE_KEY });
-    const auth = await google.auth.getClient({ credentials: { client_email, private_key }, scopes: ['https://spreadsheets.google.com/feeds/'] });
-    sheets = google.sheets({ version: 'v4', auth });
+    // A second client, independent of the one under test, for the grid fixtures below.
+    // Same construction as GoogleSheet.authorize, so it asks for the same scope.
+    const client = new auth.JWT({ email: client_email, key: private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
+    sheets = sheetsApi({ version: 'v4', auth: client });
 
     await addWorksheetWithGrid(constrained, 3, 2);
     await addWorksheetWithGrid(sentinel, 12, 8);

@@ -1,6 +1,9 @@
-import { Args, Command, Flags, ux } from '@oclif/core';
-import { ArgOutput, FlagInput, FlagOutput } from '@oclif/core/lib/interfaces/parser';
+import { Args, Command, Flags } from '@oclif/core';
+import { FlagInput, OutputArgs, OutputFlags } from '@oclif/core/interfaces';
+import { ux } from '@oclif/core/ux';
+import { createInterface } from 'readline';
 import { normalizeCredentials } from './credentials';
+import * as factory from './factory';
 import GoogleSheet, { GoogleSheetCli } from './google-sheet';
 
 export const spreadsheetId = Flags.string({
@@ -28,25 +31,87 @@ export const valueInputOption = Flags.string({
 
 export const data = Args.string({
   name: 'data',
-  type: 'string',
   description: 'The data to be used as a JSON string - nested array [["1", "2", "3"]]',
   required: true,
-  env: 'DATA',
 });
 
 interface CommonFlags {
-  rawOutput: boolean;
+  rawOutput: boolean | undefined;
   clientEmail: string | undefined;
   privateKey: string | undefined;
   credentialsFile: string | undefined;
   help: void;
 }
 
+/**
+ * Ask for one secret on the terminal without echoing it back.
+ *
+ * `@oclif/core` 2 had `ux.prompt(message, { type: 'hide' })` for this; core 5 dropped the whole
+ * prompt module along with its `password-prompt` dependency, so the contract that dependency
+ * provided is kept here rather than taking a new one for it. Three parts of that contract are
+ * load-bearing and easy to lose:
+ *
+ * - everything goes to **stderr**. stdout is the command's output, and `--rawOutput` promises it
+ *   is JSON; a prompt written there lands in the middle of a `| jq` pipeline.
+ * - an empty answer is refused and the question asked again, rather than being handed on as an
+ *   empty credential that fails later as an opaque authentication error.
+ * - the muted `write` is put back whatever happens, including on an aborted prompt (EOF, Ctrl-D),
+ *   which closes the interface without ever calling back. Leaving it swallowed would silence the
+ *   process for good.
+ *
+ * @param {string} message
+ * @returns {Promise<string>}
+ */
+export const hiddenPrompt = (message: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const stderr = process.stderr;
+    // the function itself, not a bound copy: restoring a copy would leave a different `write` on
+    // the stream every time, which stacks up and defeats anyone else swapping it
+    const write = stderr.write;
+    let muted = false;
+    let answered = false;
+
+    const restore = () => {
+      muted = false;
+      (stderr as any).write = write;
+    };
+
+    // readline echoes what is typed; swallow those writes while an answer is being entered
+    (stderr as any).write = (...args: any[]) => (muted ? true : (write as any).apply(stderr, args));
+
+    const rl = createInterface({ input: process.stdin, output: stderr, terminal: true });
+
+    rl.on('close', () => {
+      restore();
+      process.stdin.pause();
+      if (!answered) reject(new Error('No input'));
+    });
+
+    const ask = () => {
+      // the question itself has to reach the terminal, so unmute around writing it
+      muted = false;
+      rl.question(`${message}: `, (answer) => {
+        if (answer === '') {
+          ask();
+          return;
+        }
+        answered = true;
+        restore();
+        stderr.write('\n');
+        rl.close();
+        resolve(answer);
+      });
+      muted = true;
+    };
+
+    ask();
+  });
+
 export default abstract class extends Command {
   private rawLogs: boolean = false;
   public gsheet!: GoogleSheet;
 
-  static flags: FlagInput<CommonFlags> = {
+  static flags = {
     help: Flags.help({ char: 'h' }),
     rawOutput: Flags.boolean({
       char: 'r',
@@ -76,7 +141,7 @@ export default abstract class extends Command {
         'Path to the service account JSON file to read the credentials from. Uses the GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey flags take precedence.',
       required: false,
     }),
-  };
+  } as FlagInput<CommonFlags>;
 
   async start(message: string) {
     if (!this.rawLogs) {
@@ -100,7 +165,7 @@ export default abstract class extends Command {
 
   async init() {
     // do some initialization
-    const { flags } = await this.parse<CommonFlags, FlagOutput, ArgOutput>(<any>this.constructor);
+    const { flags } = await this.parse<CommonFlags, OutputFlags<any>, OutputArgs<any>>(<any>this.constructor);
     this.rawLogs = !!flags?.rawOutput;
 
     // Only prompt for what the flags, the env and the credentials file left missing.
@@ -110,17 +175,29 @@ export default abstract class extends Command {
       credentialsFile: flags?.credentialsFile,
     });
 
-    const gsheet = new GoogleSheet();
+    const gsheet = factory.createGoogleSheet();
     await gsheet.authorize({
-      client_email: credentials.client_email ?? (await ux.prompt('What is your client email?', { type: 'hide' })),
-      private_key: credentials.private_key ?? (await ux.prompt('What is your private key?', { type: 'hide' })),
+      client_email: credentials.client_email ?? (await hiddenPrompt('What is your client email?')),
+      private_key: credentials.private_key ?? (await hiddenPrompt('What is your private key?')),
     });
 
     this.gsheet = gsheet;
   }
 
   async catch(err: Error) {
+    // `ux.action.start()` replaces process.stdout.write and process.stderr.write with buffering
+    // stubs, and only `stop()` puts them back and flushes. An error thrown while the spinner is
+    // running is therefore written into a buffer nobody empties, and the process exits with the
+    // right code and nothing printed. oclif's own `Command.catch` stops the action for exactly
+    // this reason; overriding it took that away, and `@oclif/core` 2's process-exit hook, which
+    // used to flush the buffer regardless, is gone in 5. Stopping an action that was never
+    // started returns immediately, so this is correct on every path into `catch` - a parse
+    // failure, a credential failure, or a command that already called `stop()`.
+    try {
+      ux.action.stop();
+    } catch {
+      // a rendering failure must never swallow the error we are here to report
+    }
     this.error(err, { exit: 1 });
-    // handle any error from the command
   }
 }
