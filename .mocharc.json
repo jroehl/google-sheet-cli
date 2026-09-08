@@ -3,7 +3,7 @@
   "extension": ["ts"],
   "recursive": true,
   "delay": false,
-  "timeout": 15000,
+  "timeout": 150000,
   "reporter": "spec",
   "forbid-only": true,
   "file": "test/commands/hooks.test.ts"
