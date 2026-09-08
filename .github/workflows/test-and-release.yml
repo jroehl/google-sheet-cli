@@ -140,6 +140,9 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      # npm trusted publishing. The npm CLI trades this job's OIDC token for a short-lived
+      # credential, so the package needs no long-lived npm token anywhere.
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
@@ -158,4 +161,3 @@ jobs:
           npm run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
