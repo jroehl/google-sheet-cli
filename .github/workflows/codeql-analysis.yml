@@ -45,7 +45,7 @@ jobs:
       # There is nothing to compile for JavaScript, but autobuild is what the starter workflow
       # runs and it is a no-op here.
       - name: Autobuild
-        uses: github/codeql-action/autobuild@6f5948dfacef28e207b48d0905cf90c03365536d # v3.37.9
+        uses: github/codeql-action/autobuild@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
 
       # This was still on v1, which GitHub retired; the analysis has not been running.
       - name: Perform CodeQL Analysis
