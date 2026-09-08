@@ -1,5 +1,6 @@
 import { Args, Command, Flags, ux } from '@oclif/core';
 import { ArgOutput, FlagInput, FlagOutput } from '@oclif/core/lib/interfaces/parser';
+import { normalizeCredentials } from './credentials';
 import GoogleSheet, { GoogleSheetCli } from './google-sheet';
 
 export const spreadsheetId = Flags.string({
@@ -37,6 +38,7 @@ interface CommonFlags {
   rawOutput: boolean;
   clientEmail: string | undefined;
   privateKey: string | undefined;
+  credentialsFile: string | undefined;
   help: void;
 }
 
@@ -66,6 +68,14 @@ export default abstract class extends Command {
       description: 'The private key to use for authentication. Uses the GSHEET_PRIVATE_KEY env variable if not provided.',
       required: false,
     }),
+    credentialsFile: Flags.string({
+      helpGroup: 'Authentication',
+      char: 'f',
+      env: 'GSHEET_CREDENTIALS_FILE',
+      description:
+        'Path to the service account JSON file to read the credentials from. Uses the GSHEET_CREDENTIALS_FILE env variable if not provided. The clientEmail and privateKey flags take precedence.',
+      required: false,
+    }),
   };
 
   async start(message: string) {
@@ -92,13 +102,18 @@ export default abstract class extends Command {
     // do some initialization
     const { flags } = await this.parse<CommonFlags, FlagOutput, ArgOutput>(<any>this.constructor);
     this.rawLogs = !!flags?.rawOutput;
-    const clientEmail = flags?.clientEmail ?? (await ux.prompt('What is your client email?', { type: 'hide' }));
-    const privateKey = flags?.privateKey ?? (await ux.prompt('What is your private key?', { type: 'hide' }));
+
+    // Only prompt for what the flags, the env and the credentials file left missing.
+    const credentials = normalizeCredentials({
+      client_email: flags?.clientEmail,
+      private_key: flags?.privateKey,
+      credentialsFile: flags?.credentialsFile,
+    });
 
     const gsheet = new GoogleSheet();
     await gsheet.authorize({
-      client_email: clientEmail,
-      private_key: privateKey,
+      client_email: credentials.client_email ?? (await ux.prompt('What is your client email?', { type: 'hide' })),
+      private_key: credentials.private_key ?? (await ux.prompt('What is your private key?', { type: 'hide' })),
     });
 
     this.gsheet = gsheet;

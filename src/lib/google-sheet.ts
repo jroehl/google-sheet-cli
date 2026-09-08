@@ -1,6 +1,8 @@
 import { google, sheets_v4 } from 'googleapis';
 import get from 'lodash.get';
-import { colToA, getLongestArray, getRange, parseRange } from './utils';
+import { CredentialsInput, normalizeCredentials } from './credentials';
+import { log } from './log';
+import { colToA, getLongestArray, getRange, parseRange, rangeWorksheet, requiredGrid } from './utils';
 
 export namespace GoogleSheetCli {
   export interface Credentials {
@@ -40,6 +42,15 @@ export namespace GoogleSheetCli {
 
 const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
 
+const LOG_NAMESPACE = 'gsheet:sheets';
+
+/**
+ * Say on stderr why a call did nothing. Not gated behind DEBUG, unlike the credentials
+ * output: a silent no-op is the thing worth warning about, so the caller has to see it
+ * without knowing to ask.
+ */
+const warn = (message: string): void => log(LOG_NAMESPACE, message);
+
 /**
  * GoogleSheet helper class for CRUD operations
  *
@@ -58,16 +69,18 @@ export default class GoogleSheet {
   constructor(private spreadsheetId?: string, private worksheetTitle?: string | null) {}
 
   /**
-   * Authorize with credentials
+   * Authorize with credentials, either passed directly or read from a service account JSON file
    *
-   * @param {GoogleSheetCli.Credentials} credentials
+   * @param {CredentialsInput} credentials
    * @returns {Promise<void>}
    * @memberof GoogleSheet
    */
-  async authorize(credentials: GoogleSheetCli.Credentials): Promise<void> {
-    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+  async authorize(credentials: CredentialsInput): Promise<void> {
+    const { client_email, private_key } = normalizeCredentials(credentials);
+    if (!client_email) throw new Error('client_email is required to authorize');
+    if (!private_key) throw new Error('private_key is required to authorize');
     // Create the JWT client
-    const auth = await google.auth.getClient({ credentials, scopes: [GOOGLE_FEED_URL] });
+    const auth = await google.auth.getClient({ credentials: { client_email, private_key }, scopes: [GOOGLE_FEED_URL] });
     this.sheets = google.sheets({ version: 'v4', auth });
   }
 
@@ -118,7 +131,11 @@ export default class GoogleSheet {
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
     if (options.range) {
       const parsedOptions = parseRange(options.range);
-      if (parsedOptions.worksheetTitle) {
+      // A quoted title inside the range overwrites worksheetTitle; an unquoted one does not.
+      // That is not a preference, it is what 2.2.0 did - its regex only ever recognised the
+      // quoted form - and the choice is remembered on the instance, so it steers every later
+      // command in the run as well. Both halves have to stay.
+      if (parsedOptions.worksheetTitle && rangeWorksheet(options.range).quoted) {
         options.worksheetTitle = parsedOptions.worksheetTitle;
       }
       if (parsedOptions.minCol) {
@@ -217,7 +234,11 @@ export default class GoogleSheet {
    * @memberof GoogleSheet
    */
   async appendData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
-    const { rawData }: GoogleSheetCli.SheetData = await this.getData(options, spreadsheetId);
+    // `getData` fills `worksheetTitle` in on the object it is handed, from the range or from the
+    // title remembered on the instance. Hand it a copy: `updateData` has to see the title the
+    // caller passed to *this* call, or its absence, not one an earlier command left behind.
+    // Only `minRow` is written back, because callers (and the action's e2e) read it there.
+    const { rawData }: GoogleSheetCli.SheetData = await this.getData({ ...options }, spreadsheetId);
     options.minRow = rawData.length + 1;
     await this.updateData(data, options, spreadsheetId);
   }
@@ -232,9 +253,51 @@ export default class GoogleSheet {
    * @memberof GoogleSheet
    */
   async updateData(data: GoogleSheetCli.RawData, options: GoogleSheetCli.QueryOptions, spreadsheetId?: string): Promise<void> {
+    // what the caller actually named, before the remembered title fills the gap. Only a title
+    // the caller passed can contradict a range; a title left over from an earlier command on
+    // the same instance is not something they said here.
+    const namedTitle = options.worksheetTitle;
     options.worksheetTitle = options.worksheetTitle || this.worksheetTitle;
-    if (!options.worksheetTitle) throw 'Specify worksheetTitle';
-    if (!Array.isArray(data) || !data.every(Array.isArray)) throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+
+    // Which worksheet this call resolves to follows getData: a quoted title inside the range
+    // wins, an unquoted one does not, because that is what 2.2.0 did.
+    const { worksheetTitle: rangeTitle, quoted } = options.range ? rangeWorksheet(options.range) : { worksheetTitle: undefined, quoted: false };
+
+    // A caller who names one worksheet and a range naming another has said two contradictory
+    // things, whichever way the range spelled it. 2.2.0 resolved that silently in the range's
+    // favour, because getRange hands the range to the API untouched, and a fix release may not
+    // turn a call that worked into a failure. So: say which one wins, then do what 2.2.0 did.
+    // Refusing the call outright is held for 3.0.0 (see test-docs/revive-v3.md).
+    const contradicted = Boolean(rangeTitle && namedTitle && rangeTitle !== namedTitle);
+    if (contradicted) {
+      warn(`range "${options.range}" targets worksheet "${rangeTitle}" but worksheetTitle is "${namedTitle}"; writing to "${rangeTitle}", as 2.2.x did`);
+    }
+
+    // The range's worksheet is where the write lands whenever it won, so it is also the one to
+    // resolve and to grow. Growing the other one would add rows to a sheet nobody wrote to.
+    const targetTitle = (quoted || contradicted ? rangeTitle : undefined) || options.worksheetTitle;
+    if (!targetTitle) throw 'Specify worksheetTitle';
+    if (!Array.isArray(data) || !data.every(Array.isArray)) {
+      throw 'Check "data" property - has to be supplied as nested array ([["1", "2"], ["3", "4"]])';
+    }
+    // A job that writes "whatever came in today" and finds nothing succeeded on every quiet day
+    // before 2.3.0, so an empty array stays a success. It just no longer costs a request.
+    if (!data.length) {
+      warn('no rows to write, nothing was sent to the spreadsheet');
+      return;
+    }
+
+    const { rows, cols } = requiredGrid(data, options);
+    // Only size a grid the write is going to land in, and only read the one being sized. With an
+    // unquoted range and no explicit title the call resolves to the remembered worksheet while
+    // getRange sends the write to the range's, so growing here would add rows to a sheet nobody
+    // asked about - and fetching it would fail a write that 2.2.0 completed, whenever the
+    // remembered title has since been renamed away.
+    if (!rangeTitle || rangeTitle === targetTitle) {
+      const sheet = await this.getWorksheet(targetTitle, spreadsheetId);
+      await this.ensureGridSize(sheet, rows, cols, spreadsheetId);
+    }
+
     const range = getRange(options);
     await this.sheets.spreadsheets.values.update({
       spreadsheetId: spreadsheetId || this.spreadsheetId,
@@ -243,6 +306,35 @@ export default class GoogleSheet {
       requestBody: {
         values: data,
       },
+    });
+  }
+
+  /**
+   * Grow the worksheet grid so that it holds at least the requested number of rows and columns.
+   * The API never grows the grid for a values.update, so a write past the last row or column
+   * fails with "exceeds grid limits" unless the dimensions are appended first (#611).
+   *
+   * @param {sheets_v4.Schema$Sheet} sheet
+   * @param {number} neededRows
+   * @param {number} neededCols
+   * @param {string} [spreadsheetId]
+   * @returns {Promise<void>}
+   * @memberof GoogleSheet
+   */
+  private async ensureGridSize(sheet: sheets_v4.Schema$Sheet, neededRows: number, neededCols: number, spreadsheetId?: string): Promise<void> {
+    const { rowCount, columnCount } = sheet.properties?.gridProperties || {};
+    const rows = rowCount ?? 0;
+    const cols = columnCount ?? 0;
+    const sheetId = sheet.properties?.sheetId;
+
+    const requests: sheets_v4.Schema$Request[] = [];
+    if (neededRows > rows) requests.push({ appendDimension: { sheetId, dimension: 'ROWS', length: neededRows - rows } });
+    if (neededCols > cols) requests.push({ appendDimension: { sheetId, dimension: 'COLUMNS', length: neededCols - cols } });
+    if (!requests.length) return;
+
+    await this.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId || this.spreadsheetId,
+      requestBody: { requests },
     });
   }
 

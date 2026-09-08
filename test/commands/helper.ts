@@ -5,6 +5,12 @@ const { GSHEET_CLIENT_EMAIL: client_email = '', GSHEET_PRIVATE_KEY: private_key 
 export const SPREADSHEET_ID = TEST_SPREADSHEET_ID;
 
 const ID = () => `_${Math.random().toString(36).substr(2, 9)}`;
+
+/**
+ * `<prefix><Date.now()>_<random>`. bin/cleanup-classify.js recognises leftover worksheets as ours by
+ * exactly this shape, so the prefix has to be one it knows and the millisecond epoch has to stay
+ * the first numeric token. A title it cannot parse is never cleaned up.
+ */
 export const getID = (prefix = '') => `${prefix}${Date.now()}${ID()}`;
 
 export const DATA_APPEND = getID('data_append_');
