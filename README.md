@@ -14,14 +14,14 @@ Using the `jroehl/gsheet.action` GitHub Action rather than this package directly
 
 `engines.node` is now `>=22`, so `google-sheet-cli@latest` needs Node 22 or newer. Node 14 through 20 are no longer supported.
 
-The 2.x line stays on npm under the `v2` dist-tag and keeps its `>=14` floor:
+The 2.x line stays on npm and keeps its `>=14` floor. Ask for it by range, which always resolves to the newest 2.x:
 
 ```sh-session
-$ npm install -g google-sheet-cli@v2
-$ npx google-sheet-cli@v2 spreadsheet:get -s <spreadsheetId>
+$ npm install -g google-sheet-cli@^2
+$ npx google-sheet-cli@^2 spreadsheet:get -s <spreadsheetId>
 ```
 
-A `2.x` maintenance branch is being cut for it; from then on that line gets fixes, not features.
+The `2.x` branch carries that line and gets fixes, not features.
 
 ### The bin scripts are `bin/run.js` and `bin/dev.js`
 

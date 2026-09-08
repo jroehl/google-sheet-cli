@@ -647,7 +647,8 @@ below so that cutting it later is a copy, not a design exercise.
    workflow run is not the gate; the dry run is.
 5. Prove the path end to end with one README-only commit,
    `fix: point 2.x users at the 3.x migration notes`, and confirm `npm view google-sheet-cli@2.3.1
-   version` prints `2.3.1` and `npm dist-tag add google-sheet-cli@2.3.1 v2` follows.
+   version` prints `2.3.1`. Nothing follows it: there is no dist-tag to move, because `@^2` picks
+   the new patch up on its own.
 
 **`.releaserc`, verbatim**
 
@@ -904,26 +905,21 @@ repository, not unilaterally: `actions/checkout` and `actions/setup-node` at v5 
 and `codeql-action` at v3 while v4 exists. Both lines were still receiving releases when they were
 pinned.
 
-## Step 16 — publishing 3.0.0, and the `v2` dist-tag
+## Step 16 — publishing 3.0.0
 
 The documentation is written; every step below is the repository owner's, and each push needs their
 confirmation for that specific push.
 
-**Order matters in one place only, and it is step 2.** The `v2` dist-tag has to exist *before*
-3.0.0 is published. The moment 3.0.0 lands, `latest` moves to it, and a 2.x user running
-`npm install google-sheet-cli` gets a package their Node cannot run. With `v2` already pointing at
-2.3.0, `npm install google-sheet-cli@v2` — which is what the README's migration section tells them
-to do — is true from the first second.
+**There is no `v2` dist-tag, and that is deliberate.** The plan called for one, so that a 2.x user
+kept a stable install path once `latest` moved to 3.0.0. Publishing now goes through OIDC trusted
+publishing with no npm token anywhere, so nothing in CI can create or move a dist-tag, and a human
+would have to re-point it by hand on every future 2.x release — a standing chore whose only failure
+mode is silent staleness. `google-sheet-cli@^2` gives a 2.x user the same guarantee, always resolves
+to the newest 2.x without maintenance, and is what the README's migration section tells them to use.
+Nothing in the order below depends on a dist-tag existing.
 
 1. **Confirm 2.3.0 is on npm.** `npm view google-sheet-cli version` prints `2.3.0`. Steps 4-7 have to
    have shipped; 3.0.0 cannot be the release that also carries the 2.3.0 fixes to their tag.
-
-2. **Add the `v2` dist-tag, before merging anything.**
-
-   ```sh
-   npm dist-tag add google-sheet-cli@2.3.0 v2
-   npm view google-sheet-cli dist-tags        # latest: 2.3.0, v2: 2.3.0
-   ```
 
 3. **Merge `modernize` into `master` so semantic-release reads a major.** The branch carries
    `feat!:` and `refactor!:` commits. If the merge is a squash, those subjects collapse into one
@@ -949,11 +945,12 @@ to do — is true from the first second.
 
    ```sh
    npm view google-sheet-cli version                   # 3.0.0
-   npm view google-sheet-cli dist-tags                 # latest: 3.0.0, v2: 2.3.0
+   npm view google-sheet-cli dist-tags                 # latest: 3.0.0, and nothing else
+   npm view google-sheet-cli@^2 version                # 2.3.0, the newest 2.x
    npx google-sheet-cli@3 --help                       # on Node 24
    # the 2.x line still runs on the old floor: --package=node@20 puts Node 20 first on PATH,
    # so the bin script's `env node` shebang picks it up
-   npx --package=node@20 --package=google-sheet-cli@v2 -- google-sheet --help
+   npx --package=node@20 --package=google-sheet-cli@^2 -- google-sheet --help
    ```
 
 7. **Cut the `2.x` maintenance branch.** Two halves with different preconditions, and it is worth
