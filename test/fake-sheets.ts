@@ -211,6 +211,25 @@ const formatRange = (title: string, startRow: number, startCol: number, endRow?:
   return `${named}!${start}:${colToLetter(endCol as number)}${endRow}`;
 };
 
+/**
+ * The rejection Google sends once a per-minute quota is spent. The wording is the one the live
+ * suite reported on 2026-09-07; the 429 and `RESOURCE_EXHAUSTED` are what the API documents for
+ * it (https://developers.google.com/workspace/sheets/api/limits). `error.message` is what the
+ * client turns into the error a caller sees, so a test asserting on the message is asserting on
+ * Google's.
+ */
+const QUOTA_REJECTION: FakeResponse = {
+  status: 429,
+  body: {
+    error: {
+      code: 429,
+      message:
+        "Quota exceeded for quota metric 'Read requests' and limit 'Read requests per minute per user' of service 'sheets.googleapis.com' for consumer 'project_number:000000000000'.",
+      status: 'RESOURCE_EXHAUSTED',
+    },
+  },
+};
+
 export class FakeSheets {
   readonly spreadsheets = new Map<string, FakeSpreadsheet>();
   readonly requests: RecordedRequest[] = [];
@@ -218,6 +237,7 @@ export class FakeSheets {
 
   private nextSheetId = 100;
   private nextSpreadsheetId = 1;
+  private quotaRejectionsLeft = 0;
   private originalHttpsRequest?: Function;
   private originalHttpRequest?: Function;
 
@@ -268,6 +288,23 @@ export class FakeSheets {
   reset(): void {
     this.spreadsheets.clear();
     this.requests.length = 0;
+    this.quotaRejectionsLeft = 0;
+  }
+
+  /**
+   * Answer the next `times` Sheets requests with the rejection Google sends once a per-minute
+   * quota is spent - HTTP 429, status `RESOURCE_EXHAUSTED` - and serve the real handler again
+   * after that. `Infinity` is a bucket that never refills.
+   *
+   * The token endpoint is deliberately left alone: a client that cannot authorize would never
+   * reach the call under test.
+   *
+   * @param {number} [times=1]
+   * @returns {void}
+   * @memberof FakeSheets
+   */
+  rejectWithQuota(times = 1): void {
+    this.quotaRejectionsLeft = times;
   }
 
   /**
@@ -424,6 +461,11 @@ export class FakeSheets {
 
     if (parsed.hostname !== SHEETS_HOST) {
       return { status: 404, body: { error: { code: 404, message: `Unexpected host ${parsed.hostname}`, status: 'NOT_FOUND' } } };
+    }
+
+    if (this.quotaRejectionsLeft > 0) {
+      this.quotaRejectionsLeft--;
+      return QUOTA_REJECTION;
     }
 
     const path = decodeURIComponent(parsed.pathname);
