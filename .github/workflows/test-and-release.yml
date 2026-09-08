@@ -97,8 +97,19 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      # npm trusted publishing. The npm CLI trades this job's OIDC token for a short-lived
+      # credential, so the package needs no long-lived npm token anywhere.
+      id-token: write
     steps:
       - uses: actions/checkout@v3
+
+      # npm learned trusted publishing in 11.5.1 and no Node 18 ships an npm that new. This
+      # pins the Node that runs semantic-release only; the package still supports Node 14
+      # upward and the test matrix is what says so.
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+          cache: 'npm'
 
       - name: ci
         run: npm ci
@@ -108,4 +119,3 @@ jobs:
           npm run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
