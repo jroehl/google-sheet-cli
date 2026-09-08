@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { auth, sheets as sheetsApi, sheets_v4 } from '@googleapis/sheets';
 import { normalizeCredentials } from '../src/lib/credentials';
 import GoogleSheet from '../src/lib/google-sheet';
-import { getID } from './commands/helper';
+import { expectRange, getID } from './commands/helper';
 
 const data = {
   new: [
@@ -53,14 +53,16 @@ describe('google-sheet', () => {
   it('[3] updates data', async () => {
     const update = await gsheet.updateData(data.new, { worksheetTitle, minCol: 1, minRow: 1 });
     await expect(update).to.equal(undefined);
-    const get = await gsheet.getData({ minCol: 1, minRow: 1 });
+    const { range, ...get } = await gsheet.getData({ minCol: 1, minRow: 1 });
+    // the range comes back from the API verbatim, and Google no longer quotes a worksheet whose
+    // title does not need it - so assert what the range means, not how it is punctuated
+    expectRange(range, worksheetTitle, 'A1:Z1000');
     await expect(get).to.eql({
       formatted: [
         { '(A)': 'A1', '(B)': 'A2', '(C)': 'A3', '(D)': 'A4', '(E)': 'A5', '(F)': '' },
         { '(A)': 'B1', '(B)': '', '(C)': 'B3', '(D)': 'B4', '(E)': 'B5', '(F)': 'B6' },
       ],
       header: ['(A)', '(B)', '(C)', '(D)', '(E)', '(F)'],
-      range: `'${worksheetTitle}'!A1:Z1000`,
       rawData: [
         ['A1', 'A2', 'A3', 'A4', 'A5', ''],
         ['B1', '', 'B3', 'B4', 'B5', 'B6'],
@@ -71,7 +73,8 @@ describe('google-sheet', () => {
   it('[4] appends data', async () => {
     const append = await gsheet.appendData(data.append, { worksheetTitle, minCol: 1 });
     await expect(append).to.equal(undefined);
-    const get = await gsheet.getData({ minCol: 1, minRow: 1 });
+    const { range, ...get } = await gsheet.getData({ minCol: 1, minRow: 1 });
+    expectRange(range, worksheetTitle, 'A1:Z1000');
     await expect(get).to.eql({
       formatted: [
         { '(A)': 'A1', '(B)': 'A2', '(C)': 'A3', '(D)': 'A4', '(E)': 'A5', '(F)': '' },
@@ -80,7 +83,6 @@ describe('google-sheet', () => {
         { '(A)': 'D1', '(B)': 'D2', '(C)': 'D3', '(D)': 'D4', '(E)': 'D5', '(F)': '' },
       ],
       header: ['(A)', '(B)', '(C)', '(D)', '(E)', '(F)'],
-      range: `'${worksheetTitle}'!A1:Z1000`,
       rawData: [
         ['A1', 'A2', 'A3', 'A4', 'A5', ''],
         ['B1', '', 'B3', 'B4', 'B5', 'B6'],

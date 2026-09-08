@@ -204,12 +204,25 @@ describe('google-sheet regression', () => {
           { '(A)': 'B1', '(B)': '', '(C)': 'B3', '(D)': 'B4', '(E)': 'B5', '(F)': 'B6' },
         ],
         header: ['(A)', '(B)', '(C)', '(D)', '(E)', '(F)'],
-        range: `'${TITLE}'!A1:Z1000`,
+        range: `${TITLE}!A1:Z1000`,
         rawData: [
           ['A1', 'A2', 'A3', 'A4', 'A5', ''],
           ['B1', '', 'B3', 'B4', 'B5', 'B6'],
         ],
       });
+    });
+
+    it('gets back a range that quotes the worksheet only when the title needs it', async () => {
+      // Sheets used to quote the worksheet of every range it echoed and stopped in September
+      // 2026; "Sheet1" now comes back bare, which is why the expectations above carry no
+      // quotes. A title that would read as a cell reference, or that is not a bare word, still
+      // gets them. test/fake-sheets.ts models the rule in needsQuoting.
+      for (const title of ['My Sheet', 'A1', '2023']) {
+        await gsheet.addWorksheet(title);
+        await gsheet.updateData([['x']], { worksheetTitle: title, minCol: 1, minRow: 1 });
+        const data = await gsheet.getData({ worksheetTitle: title, minCol: 1, minRow: 1 });
+        expect(data.range).to.equal(`'${title}'!A1:Z1000`);
+      }
     });
 
     it('keeps the blank cells of the RAW_DATA fixture', async () => {
@@ -259,7 +272,7 @@ describe('google-sheet regression', () => {
       );
       const data = await gsheet.getData({ worksheetTitle: TITLE, minCol: 1, minRow: 2, hasHeaderRow: true });
       expect(data.header).to.eql(['h1', 'h2', 'h3']);
-      expect(data.range).to.equal(`'${TITLE}'!A2:Z1000`);
+      expect(data.range).to.equal(`${TITLE}!A2:Z1000`);
       expect(data.rawData).to.eql([
         ['a', 'b', 'c'],
         ['d', 'e', 'f'],
@@ -269,7 +282,7 @@ describe('google-sheet regression', () => {
     it('honors minCol and maxRow bounds and names the headers from minCol', async () => {
       await gsheet.updateData([...BLOCK, ['C1', 'C2']], { worksheetTitle: TITLE, minCol: 1, minRow: 1 });
       const data = await gsheet.getData({ worksheetTitle: TITLE, minCol: 2, minRow: 1, maxRow: 2 });
-      expect(data.range).to.equal(`'${TITLE}'!B1:Z2`);
+      expect(data.range).to.equal(`${TITLE}!B1:Z2`);
       expect(data.header).to.eql(['(B)', '(C)', '(D)', '(E)', '(F)']);
       expect(data.rawData).to.eql([
         ['A2', 'A3', 'A4', 'A5', ''],
@@ -333,7 +346,7 @@ describe('google-sheet regression', () => {
     it('reads a quoted range', async () => {
       await gsheet.updateData(RAW_DATA, { worksheetTitle: TITLE });
       const data = await gsheet.getData({ range: `'${TITLE}'!A2:B3` });
-      expect(data.range).to.equal(`'${TITLE}'!A2:B3`);
+      expect(data.range).to.equal(`${TITLE}!A2:B3`);
       expect(data.header).to.eql(['(A)', '(B)']);
       expect(data.rawData).to.eql([
         ['', 'B2'],
@@ -521,7 +534,7 @@ describe('google-sheet regression', () => {
           { '(A)': 'D1', '(B)': 'D2', '(C)': 'D3', '(D)': 'D4', '(E)': 'D5', '(F)': '' },
         ],
         header: ['(A)', '(B)', '(C)', '(D)', '(E)', '(F)'],
-        range: `'${TITLE}'!A1:Z1000`,
+        range: `${TITLE}!A1:Z1000`,
         rawData: [
           ['A1', 'A2', 'A3', 'A4', 'A5', ''],
           ['B1', '', 'B3', 'B4', 'B5', 'B6'],
