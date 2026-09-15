@@ -30,7 +30,7 @@ jobs:
       matrix:
         node: ${{ github.event_name == 'pull_request' && fromJSON('[22, 24]') || fromJSON('[24]') }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
@@ -144,7 +144,7 @@ jobs:
       # credential, so the package needs no long-lived npm token anywhere.
       id-token: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # semantic-release runs prepack, which builds and regenerates the docs. Pin the Node it
       # does that on rather than taking whatever the runner image ships this week.
